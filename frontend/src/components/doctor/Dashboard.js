@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { Calendar, Clock, User, FileText, LogOut, Activity, Stethoscope, Settings } from 'lucide-react';
+import SettingsPage from '../settings/Settings';
 import '../Dashboard.css';
-import { Calendar, Clock, User, FileText, LogOut, Activity, Stethoscope } from 'lucide-react';
 
 const DoctorDashboard = () => {
   const { user, logout } = useAuth();
@@ -12,8 +13,16 @@ const DoctorDashboard = () => {
   const [diagnosisForm, setDiagnosisForm] = useState({ diagnosis: '', prescription: '', notes: '' });
   const [loading, setLoading] = useState(true);
 
+  const [activeTab, setActiveTab] = useState('dashboard');
+
   useEffect(() => {
     fetchAppointments();
+  }, []);
+
+  useEffect(() => {
+    function onOpenSettings() { setActiveTab('settings'); }
+    window.addEventListener('app:open-settings', onOpenSettings);
+    return () => window.removeEventListener('app:open-settings', onOpenSettings);
   }, []);
 
   const fetchAppointments = async () => {
@@ -68,9 +77,19 @@ const DoctorDashboard = () => {
           <span>{user?.name}</span>
         </div>
         <div className="sidebar-menu">
-          <div className="menu-item active">
+          <div 
+            className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
             <Activity size={20} />
             <span>Dashboard</span>
+          </div>
+          <div 
+            className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={20} />
+            <span>Settings</span>
           </div>
         </div>
         <button className="logout-button" onClick={logout}>
@@ -80,8 +99,16 @@ const DoctorDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        <div className="content-wrapper">
+        {activeTab === 'dashboard' && (
+        <>
         <div className="dashboard-header">
           <h1>Welcome, Dr. {user?.name}!</h1>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
+              <Settings size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="stats-grid">
@@ -167,6 +194,10 @@ const DoctorDashboard = () => {
               </table>
             </div>
           )}
+        </div>
+        </>
+        )}
+        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 

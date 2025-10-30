@@ -27,6 +27,14 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    function onLogout() {
+      logout();
+    }
+    window.addEventListener('app:logout', onLogout);
+    return () => window.removeEventListener('app:logout', onLogout);
+  }, []);
+
   const login = async (email, password) => {
     try {
       const response = await axios.post('http://localhost:3001/api/auth/login', {
@@ -53,7 +61,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
