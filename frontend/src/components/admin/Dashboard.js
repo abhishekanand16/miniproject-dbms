@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import '../Dashboard.css';
 import { Users, Calendar, DollarSign, Activity, LogOut, UserPlus, Settings, Trash2, Edit } from 'lucide-react';
+import SettingsPage from '../settings/Settings';
+import '../Dashboard.css';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -24,12 +25,32 @@ const AdminDashboard = () => {
     if (activeTab === 'billing') fetchBills();
   }, [activeTab]);
 
+  useEffect(() => {
+    function onOpenSettings() { setActiveTab('settings'); }
+    window.addEventListener('app:open-settings', onOpenSettings);
+    return () => window.removeEventListener('app:open-settings', onOpenSettings);
+  }, []);
+
   const fetchStats = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/stats');
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined' || token === 'null') {
+        console.error('Missing auth token for admin stats');
+        alert('Please log in as an admin to view stats.');
+        return;
+      }
+      const bearer = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      const response = await axios.get('http://localhost:3001/api/admin/stats', {
+        headers: { Authorization: bearer }
+      });
       setStats(response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      const status = error?.response?.status;
+      const msg = error?.response?.data?.error || error.message;
+      console.error('Error fetching stats:', status, msg);
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        alert('Your session has expired or you lack permissions. Please log in as an admin.');
+      }
     } finally {
       setLoading(false);
     }
@@ -37,7 +58,10 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/users');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3001/api/admin/users', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -46,7 +70,10 @@ const AdminDashboard = () => {
 
   const fetchAppointments = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/appointments');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3001/api/admin/appointments', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setAppointments(response.data);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -55,7 +82,10 @@ const AdminDashboard = () => {
 
   const fetchBills = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/billing');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3001/api/admin/billing', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setBills(response.data);
     } catch (error) {
       console.error('Error fetching bills:', error);
@@ -66,7 +96,10 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       const endpoint = `/api/auth/register/${userForm.role}`;
-      await axios.post(`http://localhost:3001${endpoint}`, userForm);
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:3001${endpoint}`, userForm, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setShowUserModal(false);
       setUserForm({ email: '', password: '', name: '', role: 'patient' });
       fetchUsers();
@@ -91,9 +124,11 @@ const AdminDashboard = () => {
   const handleUpdateUser = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
       await axios.put(
         `http://localhost:3001/api/admin/users/${selectedUser.role}/${selectedUser.email}`,
-        userForm
+        userForm,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setShowEditModal(false);
       setSelectedUser(null);
@@ -106,7 +141,10 @@ const AdminDashboard = () => {
   const handleDeleteUser = async (userEmail, role) => {
     if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
     try {
-      await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`);
+      const token = localStorage.getItem('token');
+      await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchUsers();
       fetchStats();
     } catch (error) {
@@ -116,7 +154,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <div className="sidebar">
+      <div className="sidebar glass-surface">
         <div className="sidebar-header">
           <h2>🏥 HMS</h2>
           <p>Admin Portal</p>
@@ -154,6 +192,13 @@ const AdminDashboard = () => {
             <DollarSign size={20} />
             <span>Billing</span>
           </div>
+          <div 
+            className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={20} />
+            <span>Settings</span>
+          </div>
         </div>
         <button className="logout-button" onClick={logout}>
           <LogOut size={20} />
@@ -162,14 +207,20 @@ const AdminDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        <div className="content-wrapper">
         <div className="dashboard-header">
           <h1>Admin Dashboard</h1>
-          {activeTab === 'users' && (
-            <button className="primary-button" onClick={() => setShowUserModal(true)}>
-              <UserPlus size={20} />
-              Add User
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
+              <Settings size={18} />
             </button>
-          )}
+            {activeTab === 'users' && (
+              <button className="primary-button" onClick={() => setShowUserModal(true)}>
+                <UserPlus size={20} />
+                Add User
+              </button>
+            )}
+          </div>
         </div>
 
         {activeTab === 'overview' && (
@@ -243,7 +294,8 @@ const AdminDashboard = () => {
                       <td>{u.email}</td>
                       <td>
                         <span className="status-badge" style={{ 
-                          backgroundColor: u.role === 'patient' ? '#667eea' : 
+                          backgroundColor: u.role === 'admin' ? '#10b981' : 
+                                          u.role === 'patient' ? '#667eea' : 
                                           u.role === 'doctor' ? '#f5576c' : 
                                           u.role === 'cashier' ? '#4facfe' : '#10b981'
                         }}>
@@ -353,6 +405,10 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+        {activeTab === 'settings' && (
+          <SettingsPage />
+        )}
+        </div>
       </div>
 
       {showUserModal && (
@@ -367,6 +423,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                   className="form-input"
                 >
+                  <option value="admin">Admin</option>
                   <option value="patient">Patient</option>
                   <option value="doctor">Doctor</option>
                   <option value="cashier">Cashier</option>

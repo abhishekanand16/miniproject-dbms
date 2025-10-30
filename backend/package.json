@@ -18,6 +18,10 @@
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "keywords": ["hospital", "management", "dbms"],
   "author": "",
   "license": "ISC"

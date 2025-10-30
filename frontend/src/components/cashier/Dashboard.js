@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { DollarSign, Clock, CheckCircle, XCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
+import SettingsPage from '../settings/Settings';
 import '../Dashboard.css';
-import { DollarSign, Clock, CheckCircle, XCircle, LogOut, Activity, Receipt } from 'lucide-react';
 
 const CashierDashboard = () => {
   const { user, logout } = useAuth();
   const [bills, setBills] = useState([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -20,6 +22,12 @@ const CashierDashboard = () => {
   useEffect(() => {
     fetchBills();
   }, [filter]);
+
+  useEffect(() => {
+    function onOpenSettings() { setActiveTab('settings'); }
+    window.addEventListener('app:open-settings', onOpenSettings);
+    return () => window.removeEventListener('app:open-settings', onOpenSettings);
+  }, []);
 
   const fetchBills = async () => {
     try {
@@ -81,9 +89,19 @@ const CashierDashboard = () => {
           <span>{user?.name}</span>
         </div>
         <div className="sidebar-menu">
-          <div className="menu-item active">
+          <div 
+            className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
             <Activity size={20} />
             <span>Dashboard</span>
+          </div>
+          <div 
+            className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={20} />
+            <span>Settings</span>
           </div>
         </div>
         <button className="logout-button" onClick={logout}>
@@ -93,12 +111,20 @@ const CashierDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        <div className="content-wrapper">
+        {activeTab === 'dashboard' && (
+        <>
         <div className="dashboard-header">
           <h1>Welcome, {user?.name}!</h1>
-          <button className="primary-button" onClick={() => setShowCreateModal(true)}>
-            <DollarSign size={20} />
-            Create Bill
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
+              <Settings size={18} />
+            </button>
+            <button className="primary-button" onClick={() => setShowCreateModal(true)}>
+              <DollarSign size={20} />
+              Create Bill
+            </button>
+          </div>
         </div>
 
         <div className="stats-grid">
@@ -198,6 +224,10 @@ const CashierDashboard = () => {
               </table>
             </div>
           )}
+        </div>
+        </>
+        )}
+        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 

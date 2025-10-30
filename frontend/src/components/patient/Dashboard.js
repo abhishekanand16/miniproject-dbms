@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { Calendar, Clock, User, FileText, Plus, LogOut, Activity, Settings } from 'lucide-react';
+import SettingsPage from '../settings/Settings';
 import '../Dashboard.css';
-import { Calendar, Clock, User, FileText, Plus, LogOut, Activity } from 'lucide-react';
 
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
   const [appointments, setAppointments] = useState([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,12 @@ const PatientDashboard = () => {
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
+  }, []);
+
+  useEffect(() => {
+    function onOpenSettings() { setActiveTab('settings'); }
+    window.addEventListener('app:open-settings', onOpenSettings);
+    return () => window.removeEventListener('app:open-settings', onOpenSettings);
   }, []);
 
   const fetchAppointments = async () => {
@@ -84,9 +92,19 @@ const PatientDashboard = () => {
           <span>{user?.name}</span>
         </div>
         <div className="sidebar-menu">
-          <div className="menu-item active">
+          <div 
+            className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
             <Activity size={20} />
             <span>Dashboard</span>
+          </div>
+          <div 
+            className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={20} />
+            <span>Settings</span>
           </div>
         </div>
         <button className="logout-button" onClick={logout}>
@@ -96,12 +114,20 @@ const PatientDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        <div className="content-wrapper">
+        {activeTab === 'dashboard' && (
+        <>
         <div className="dashboard-header">
           <h1>Welcome, {user?.name}!</h1>
-          <button className="primary-button" onClick={() => setShowScheduleModal(true)}>
-            <Plus size={20} />
-            Schedule Appointment
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
+              <Settings size={18} />
+            </button>
+            <button className="primary-button" onClick={() => setShowScheduleModal(true)}>
+              <Plus size={20} />
+              Schedule Appointment
+            </button>
+          </div>
         </div>
 
         <div className="stats-grid">
@@ -172,6 +198,10 @@ const PatientDashboard = () => {
               </table>
             </div>
           )}
+        </div>
+        </>
+        )}
+        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 

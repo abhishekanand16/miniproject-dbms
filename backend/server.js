@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
@@ -60,6 +62,28 @@ const query = async (sql, params) => {
   } catch (error) {
     console.error('Database error:', error);
     throw error;
+  }
+};
+
+// Safe helpers for demo/dev resilience (return 0 on missing tables)
+const safeCount = async (table, whereClause = '', params = []) => {
+  try {
+    const rows = await query(`SELECT COUNT(*) as count FROM ${table} ${whereClause}`, params);
+    return rows?.[0]?.count ?? 0;
+  } catch (e) {
+    // e.g., ER_NO_SUCH_TABLE; log once and continue with 0
+    console.warn(`[stats] count failed for table ${table}:`, e.code || e.message);
+    return 0;
+  }
+};
+
+const safeSum = async (table, column, whereClause = '', params = []) => {
+  try {
+    const rows = await query(`SELECT SUM(${column}) as total FROM ${table} ${whereClause}`, params);
+    return rows?.[0]?.total ?? 0;
+  } catch (e) {
+    console.warn(`[stats] sum failed for ${table}.${column}:`, e.code || e.message);
+    return 0;
   }
 };
 
@@ -160,6 +184,34 @@ app.post('/api/auth/register/cashier', authenticateToken, checkRole('admin'), as
   } catch (error) {
     console.error('Cashier registration error:', error);
     res.status(500).json({ error: 'Cashier registration failed' });
+  }
+});
+
+// Register Admin
+app.post('/api/auth/register/admin', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    const existing = await query('SELECT email FROM Admin WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Admin already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await query(
+      'INSERT INTO Admin (email, password, name) VALUES (?, ?, ?)',
+      [email, hashedPassword, name]
+    );
+
+    res.status(201).json({ message: 'Admin registered successfully' });
+  } catch (error) {
+    console.error('Admin registration error:', error);
+    res.status(500).json({ error: 'Admin registration failed' });
   }
 });
 
@@ -528,6 +580,10 @@ app.get('/api/admin/users', authenticateToken, checkRole('admin'), async (req, r
     const { role } = req.query;
     
     let users = [];
+    if (!role || role === 'admin') {
+      const admins = await query('SELECT email, name, created_at FROM Admin');
+      users.push(...admins.map(a => ({ ...a, role: 'admin' })));
+    }
     if (!role || role === 'patient') {
       const patients = await query('SELECT email, name, gender, phone, created_at FROM Patient');
       users.push(...patients.map(p => ({ ...p, role: 'patient' })));
@@ -590,19 +646,15 @@ app.get('/api/admin/billing', authenticateToken, checkRole('admin'), async (req,
 // Get dashboard statistics
 app.get('/api/admin/stats', authenticateToken, checkRole('admin'), async (req, res) => {
   try {
-    const [patientCount] = await query('SELECT COUNT(*) as count FROM Patient');
-    const [doctorCount] = await query('SELECT COUNT(*) as count FROM Doctor');
-    const [appointmentCount] = await query('SELECT COUNT(*) as count FROM Appointment');
-    const [pendingBills] = await query("SELECT COUNT(*) as count FROM Billing WHERE payment_status = 'Pending'");
-    const [totalRevenue] = await query("SELECT SUM(amount) as total FROM Billing WHERE payment_status = 'Paid'");
+    const [patients, doctors, appointments, pendingBills, totalRevenue] = await Promise.all([
+      safeCount('Patient'),
+      safeCount('Doctor'),
+      safeCount('Appointment'),
+      safeCount('Billing', "WHERE payment_status = 'Pending'"),
+      safeSum('Billing', 'amount', "WHERE payment_status = 'Paid'")
+    ]);
 
-    res.json({
-      patients: patientCount[0].count,
-      doctors: doctorCount[0].count,
-      appointments: appointmentCount[0].count,
-      pendingBills: pendingBills[0].count,
-      totalRevenue: totalRevenue[0].total || 0
-    });
+    res.json({ patients, doctors, appointments, pendingBills, totalRevenue });
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
@@ -616,6 +668,9 @@ app.delete('/api/admin/users/:role/:email', authenticateToken, checkRole('admin'
     
     let table;
     switch (role) {
+      case 'admin':
+        table = 'Admin';
+        break;
       case 'patient':
         table = 'Patient';
         break;
@@ -646,7 +701,11 @@ app.put('/api/admin/users/:role/:email', authenticateToken, checkRole('admin'), 
     let sql = '';
     const params = [];
 
-    if (role === 'patient') {
+    if (role === 'admin') {
+      const fields = [];
+      if (updates.name) { fields.push('name = ?'); params.push(updates.name); }
+      sql = `UPDATE Admin SET ${fields.join(', ')} WHERE email = ?`;
+    } else if (role === 'patient') {
       const fields = [];
       if (updates.name) { fields.push('name = ?'); params.push(updates.name); }
       if (updates.address !== undefined) { fields.push('address = ?'); params.push(updates.address); }

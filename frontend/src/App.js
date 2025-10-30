@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './components/auth/Login';
 import PatientDashboard from './components/patient/Dashboard';
 import DoctorDashboard from './components/doctor/Dashboard';
 import CashierDashboard from './components/cashier/Dashboard';
 import AdminDashboard from './components/admin/Dashboard';
+import Settings from './components/settings/Settings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import Header from './components/Header';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -30,28 +32,29 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 function AppRoutes() {
   const { user } = useAuth();
-
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" />} />
-      </Routes>
-    );
-  }
-
   return (
-    <Routes>
-      <Route path="/login" element={<Navigate to="/dashboard" />} />
-      <Route path="/dashboard" element={
-        user.role === 'patient' ? <PatientDashboard /> :
-        user.role === 'doctor' ? <DoctorDashboard /> :
-        user.role === 'cashier' ? <CashierDashboard /> :
-        user.role === 'admin' ? <AdminDashboard /> :
-        <Navigate to="/login" />
-      } />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
-    </Routes>
+    <>
+      <SettingsEventBridge />
+      {(!user) ? (
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </Routes>
+      ) : (
+        <Routes>
+          <Route path="/login" element={<Navigate to="/dashboard" />} />
+          <Route path="/dashboard" element={
+            user.role === 'patient' ? <PatientDashboard /> :
+            user.role === 'doctor' ? <DoctorDashboard /> :
+            user.role === 'cashier' ? <CashierDashboard /> :
+            user.role === 'admin' ? <AdminDashboard /> :
+            <Navigate to="/login" />
+          } />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/dashboard" />} />
+        </Routes>
+      )}
+    </>
   );
 }
 
@@ -60,7 +63,7 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <ThemeToggle />
+          <Header />
           <AppRoutes />
         </AuthProvider>
       </ThemeProvider>
@@ -70,28 +73,12 @@ function App() {
 
 export default App;
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      aria-label="Toggle theme"
-      style={{
-        position: 'fixed',
-        top: 16,
-        right: 16,
-        zIndex: 999,
-        borderRadius: 12,
-        padding: '10px 12px',
-        border: '1px solid var(--border)',
-        background: 'var(--surface)',
-        color: 'var(--text-primary)',
-        boxShadow: 'var(--shadow)',
-        cursor: 'pointer'
-      }}
-    >
-      {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
-    </button>
-  );
+function SettingsEventBridge() {
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    function onOpen() { navigate('/settings'); }
+    window.addEventListener('app:open-settings', onOpen);
+    return () => window.removeEventListener('app:open-settings', onOpen);
+  }, [navigate]);
+  return null;
 }
-
