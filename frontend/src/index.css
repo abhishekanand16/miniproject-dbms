@@ -98,7 +98,8 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  height: 56px;
+  padding: 10px 16px;
   margin: 0;
   background: var(--elevated);
 }
@@ -125,9 +126,9 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
@@ -142,8 +143,8 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -307,9 +308,9 @@ code {
 .hint { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
 .hidden { display: none; }
-.avatar { position: relative; width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; }
-.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avatar-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-primary); }
+.settings-wrap .avatar { position: relative; width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; }
+.settings-wrap .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.settings-wrap .avatar-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-primary); }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
 .modal-content { max-width: 520px; width: 100%; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
 

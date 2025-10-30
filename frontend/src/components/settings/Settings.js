@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useStyle } from '../../context/StyleProvider';
 import { useAuth } from '../../context/AuthContext';
 import { useFinancialData } from '../../context/FinancialDataContext';
-import { User as UserIcon, DollarSign, Palette, Upload, PiggyBank, TrendingDown, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
+import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
 import './settings-standalone.css';
 
 const Settings = () => {
@@ -110,10 +110,6 @@ const Settings = () => {
             <UserIcon className="icon" />
             Profile
           </button>
-          <button className={`tab ${activeTab === 'financial' ? 'active' : ''}`} onClick={() => setActiveTab('financial')}>
-            <DollarSign className="icon" />
-            Financial
-          </button>
           <button className={`tab ${activeTab === 'ui' ? 'active' : ''}`} onClick={() => setActiveTab('ui')}>
             <Palette className="icon" />
             UI Settings
@@ -187,49 +183,7 @@ const Settings = () => {
           </div>
         )}
 
-        {activeTab === 'financial' && (
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <DollarSign className="icon" />
-                Financial Preferences
-              </div>
-              <div className="card-desc">Set your currency, monthly salary, and expenses.</div>
-            </div>
-            <div className="card-content">
-              <div className="form-group">
-                <label className="label" htmlFor="currency">Currency</label>
-                <select id="currency" className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                  {currencyOptions.map((c) => (
-                    <option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="separator" />
-
-              <div className="form-group">
-                <label className="label row-center"><PiggyBank className="icon" /> Monthly Salary</label>
-                <div className="row">
-                  <input className="input" value={tempSalaryAmount} onChange={(e) => setTempSalaryAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" />
-                  <button className="btn btn-default" onClick={handleFinancialUpdate}>Update</button>
-                </div>
-                <p className="muted">This amount is stored locally for the demo.</p>
-              </div>
-
-              <div className="separator" />
-
-              <div className="form-group">
-                <label className="label row-center"><TrendingDown className="icon" /> Monthly Expenses/EMI</label>
-                <div className="row">
-                  <input className="input" value={tempExpenseAmount} onChange={(e) => setTempExpenseAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" />
-                  <button className="btn btn-default" onClick={handleFinancialUpdate}>Update</button>
-                </div>
-                <p className="muted">This amount is stored locally for the demo.</p>
-              </div>
-            </div>
-          </div>
-        )}
+        
 
         {activeTab === 'ui' && (
           <div className="card">
