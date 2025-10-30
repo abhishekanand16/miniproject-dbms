@@ -32,7 +32,7 @@ function Header() {
           aria-label="Toggle theme"
           title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
         >
-          {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+          {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
         </button>
         <div className="profile-wrapper" ref={menuRef}>
           <button
@@ -42,14 +42,14 @@ function Header() {
             aria-haspopup="menu"
             aria-expanded={open}
           >
-            <User size={22} />
+            <User size={20} />
             <span className="status-dot" />
           </button>
           {open && (
             <div className="profile-menu glass-surface" role="menu">
               <div className="profile-menu-header">
                 <div className="profile-avatar-large">
-                  <User size={28} />
+                  <User size={24} />
                   <span className="status-dot status-dot-lg" />
                 </div>
                 <div>
@@ -59,25 +59,25 @@ function Header() {
               </div>
               <div className="profile-menu-section">
                 <button className="profile-menu-item" role="menuitem">
-                  <CreditCard size={18} />
+                  <CreditCard size={16} />
                   <span>Subscription</span>
                   <span className="item-meta">Free Trial</span>
                 </button>
                 <button className="profile-menu-item" role="menuitem" onClick={() => openSettings(setOpen)}>
-                  <Settings size={18} />
+                  <Settings size={16} />
                   <span>Settings</span>
                 </button>
                 <a className="profile-menu-item" role="menuitem" href="#" target="_blank" rel="noreferrer">
-                  <FileText size={18} />
+                  <FileText size={16} />
                   <span>Terms & Policies</span>
                   <ExternalLink size={16} className="item-trail" />
                 </a>
                 <a className="profile-menu-item" role="menuitem" href="#" target="_blank" rel="noreferrer">
-                  <HelpCircle size={18} />
+                  <HelpCircle size={16} />
                   <span>Help</span>
                 </a>
                 <button className="profile-menu-item" role="menuitem" onClick={() => handleLogout()}>
-                  <LogOut size={18} />
+                  <LogOut size={16} />
                   <span>Logout</span>
                 </button>
               </div>

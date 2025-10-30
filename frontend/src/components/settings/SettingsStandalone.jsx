@@ -3,16 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useStyle } from '../../context/StyleProvider';
 import { useAuth } from '../../context/AuthContext';
-import { useFinancialData } from '../../context/FinancialDataContext';
 import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
 import './settings-standalone.css';
 
-const Settings = () => {
+export default function SettingsStandalone() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useStyle();
   const { user, setUser, logout } = useAuth();
-  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount, clearUserData } = useFinancialData();
 
   const [activeTab, setActiveTab] = useState('profile');
   const isGlass = style === 'glass';
@@ -25,21 +23,10 @@ const Settings = () => {
     try { setProfileSrc(localStorage.getItem(profileKey) || ''); } catch {}
   }, [profileKey]);
 
-  const [tempSalaryAmount, setTempSalaryAmount] = useState(() => String(salaryAmount || 0));
-  const [tempExpenseAmount, setTempExpenseAmount] = useState(() => String(monthlyExpenseAmount || 0));
+  const [tempSalaryAmount, setTempSalaryAmount] = useState(() => '0');
+  const [tempExpenseAmount, setTempExpenseAmount] = useState(() => '0');
 
-  const currencyOptions = [
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
-  ];
+  const currencyOptions = [];
 
   const handleProfileUpdate = useCallback(() => {
     const next = { ...(user || {}), name: (username || '').trim() };
@@ -48,11 +35,8 @@ const Settings = () => {
   }, [setUser, user, username]);
 
   const handleFinancialUpdate = useCallback(() => {
-    const salary = parseFloat(tempSalaryAmount) || 0;
-    const expense = parseFloat(tempExpenseAmount) || 0;
-    setSalaryAmount(salary);
-    setMonthlyExpenseAmount(expense);
-  }, [tempSalaryAmount, tempExpenseAmount, setSalaryAmount, setMonthlyExpenseAmount]);
+    /* financial settings removed */
+  }, []);
 
   const handleProfilePictureUpload = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -79,15 +63,11 @@ const Settings = () => {
     } catch {}
     setUser({ ...(user || {}), name: '' });
     setUsername('');
-    setCurrency('INR');
-    setSalaryAmount(0);
-    setMonthlyExpenseAmount(0);
     setTempSalaryAmount('0');
     setTempExpenseAmount('0');
     setProfileSrc('');
-    if (clearUserData) clearUserData();
     window.location.reload();
-  }, [profileKey, setCurrency, setMonthlyExpenseAmount, setSalaryAmount, setUser, user, clearUserData]);
+  }, [profileKey, setUser, user]);
 
   const handleLogout = useCallback(() => {
     const ok = window.confirm('Logout and clear demo profile picture?');
@@ -98,14 +78,39 @@ const Settings = () => {
   }, [logout, navigate, profileKey]);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0' }}>
-      <div className={isGlass ? 'settings-container glass-card' : 'settings-container'} style={{ margin: '0', padding: '24px' }}>
-        <div className="settings-title" style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Settings</h1>
-          <p style={{ fontSize: '14px' }}>Manage your profile, financial preferences, and app appearance.</p>
+    <div className={isGlass ? 'settings-root glass' : 'settings-root'}>
+      <div className="settings-header">
+        <div className="settings-header-inner">
+          <div className="settings-header-left">
+            <div className="brand-dot" />
+            <span className="breadcrumb-app">Ledger</span>
+            <span className="breadcrumb-sep">/</span>
+            <span className="breadcrumb-page">Settings</span>
+          </div>
+          <div className="settings-header-actions">
+            <button className={`btn ${theme === 'light' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('light')}>
+              <Sun className="icon" />
+              Light
+            </button>
+            <button className={`btn ${theme === 'dark' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('dark')}>
+              <Moon className="icon" />
+              Dark
+            </button>
+            <button className={`btn ${theme === 'system' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('system')}>
+              <Monitor className="icon" />
+              System
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className={isGlass ? 'settings-container glass-card' : 'settings-container'}>
+        <div className="settings-title">
+          <h1>Settings</h1>
+          <p>Manage your profile, financial preferences, and app appearance.</p>
         </div>
 
-        <div className="tabs-list" style={{ marginBottom: '24px' }}>
+        <div className="tabs-list">
           <button className={`tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <UserIcon className="icon" />
             Profile
@@ -232,6 +237,6 @@ const Settings = () => {
       </div>
     </div>
   );
-};
+}
 
-export default Settings;
+
