@@ -118,31 +118,41 @@ code {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .theme-toggle {
-  border-radius: 12px;
-  padding: 8px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
-  box-shadow: var(--shadow);
   cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, transform .08s ease;
 }
+.theme-toggle:hover { background: rgba(127, 86, 217, 0.08); }
+[data-theme='dark'] .theme-toggle:hover { background: rgba(127, 86, 217, 0.18); }
+.theme-toggle:active { transform: scale(0.98); }
 
 .avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
-  box-shadow: var(--shadow);
+  transition: background .2s ease, box-shadow .2s ease, transform .08s ease;
 }
+.avatar:hover { background: rgba(127, 86, 217, 0.08); }
+[data-theme='dark'] .avatar:hover { background: rgba(127, 86, 217, 0.18); }
+.avatar:active { transform: scale(0.98); }
 
 .profile-wrapper { position: relative; }
 .avatar { position: relative; }

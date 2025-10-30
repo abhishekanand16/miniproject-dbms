@@ -7,12 +7,12 @@ import { useFinancialData } from '../../context/FinancialDataContext';
 import { User as UserIcon, DollarSign, Palette, Upload, PiggyBank, TrendingDown, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
 import './settings-standalone.css';
 
-const Settings = () => {
+export default function SettingsStandalone() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useStyle();
   const { user, setUser, logout } = useAuth();
-  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount, clearUserData } = useFinancialData();
+  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount } = useFinancialData();
 
   const [activeTab, setActiveTab] = useState('profile');
   const isGlass = style === 'glass';
@@ -85,9 +85,8 @@ const Settings = () => {
     setTempSalaryAmount('0');
     setTempExpenseAmount('0');
     setProfileSrc('');
-    if (clearUserData) clearUserData();
     window.location.reload();
-  }, [profileKey, setCurrency, setMonthlyExpenseAmount, setSalaryAmount, setUser, user, clearUserData]);
+  }, [profileKey, setCurrency, setMonthlyExpenseAmount, setSalaryAmount, setUser, user]);
 
   const handleLogout = useCallback(() => {
     const ok = window.confirm('Logout and clear demo profile picture?');
@@ -98,14 +97,39 @@ const Settings = () => {
   }, [logout, navigate, profileKey]);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0' }}>
-      <div className={isGlass ? 'settings-container glass-card' : 'settings-container'} style={{ margin: '0', padding: '24px' }}>
-        <div className="settings-title" style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Settings</h1>
-          <p style={{ fontSize: '14px' }}>Manage your profile, financial preferences, and app appearance.</p>
+    <div className={isGlass ? 'settings-root glass' : 'settings-root'}>
+      <div className="settings-header">
+        <div className="settings-header-inner">
+          <div className="settings-header-left">
+            <div className="brand-dot" />
+            <span className="breadcrumb-app">Ledger</span>
+            <span className="breadcrumb-sep">/</span>
+            <span className="breadcrumb-page">Settings</span>
+          </div>
+          <div className="settings-header-actions">
+            <button className={`btn ${theme === 'light' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('light')}>
+              <Sun className="icon" />
+              Light
+            </button>
+            <button className={`btn ${theme === 'dark' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('dark')}>
+              <Moon className="icon" />
+              Dark
+            </button>
+            <button className={`btn ${theme === 'system' ? 'btn-default' : 'btn-outline'}`} onClick={() => setTheme('system')}>
+              <Monitor className="icon" />
+              System
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className={isGlass ? 'settings-container glass-card' : 'settings-container'}>
+        <div className="settings-title">
+          <h1>Settings</h1>
+          <p>Manage your profile, financial preferences, and app appearance.</p>
         </div>
 
-        <div className="tabs-list" style={{ marginBottom: '24px' }}>
+        <div className="tabs-list">
           <button className={`tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <UserIcon className="icon" />
             Profile
@@ -278,6 +302,6 @@ const Settings = () => {
       </div>
     </div>
   );
-};
+}
 
-export default Settings;
+

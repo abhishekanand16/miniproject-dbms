@@ -6,9 +6,12 @@ import DoctorDashboard from './components/doctor/Dashboard';
 import CashierDashboard from './components/cashier/Dashboard';
 import AdminDashboard from './components/admin/Dashboard';
 import Settings from './components/settings/Settings';
+import SettingsStandalone from './components/settings/SettingsStandalone';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Header from './components/Header';
+import { StyleProvider } from './context/StyleProvider';
+import { FinancialDataProvider } from './context/FinancialDataContext';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -50,7 +53,7 @@ function AppRoutes() {
             user.role === 'admin' ? <AdminDashboard /> :
             <Navigate to="/login" />
           } />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<SettingsStandalone />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       )}
@@ -62,10 +65,14 @@ function App() {
   return (
     <Router>
       <ThemeProvider>
-        <AuthProvider>
-          <Header />
-          <AppRoutes />
-        </AuthProvider>
+        <StyleProvider>
+          <FinancialDataProvider>
+            <AuthProvider>
+              <ConditionalHeader />
+              <AppRoutes />
+            </AuthProvider>
+          </FinancialDataProvider>
+        </StyleProvider>
       </ThemeProvider>
     </Router>
   );
@@ -81,4 +88,10 @@ function SettingsEventBridge() {
     return () => window.removeEventListener('app:open-settings', onOpen);
   }, [navigate]);
   return null;
+}
+
+function ConditionalHeader() {
+  const location = require('react-router-dom').useLocation();
+  if (location.pathname === '/settings') return null;
+  return <Header />;
 }

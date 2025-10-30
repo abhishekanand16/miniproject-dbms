@@ -12,6 +12,9 @@ export function StyleProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('ui_style', style);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-style', style);
+    }
   }, [style]);
 
   const value = useMemo(() => ({ style, setStyle }), [style]);
@@ -24,5 +27,6 @@ export function useStyle() {
   if (!ctx) throw new Error('useStyle must be used within StyleProvider');
   return ctx;
 }
+
 
 
