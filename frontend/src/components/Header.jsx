@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Sun, Moon, CreditCard, Settings, FileText, HelpCircle, LogOut, ExternalLink } from 'lucide-react';
+import { User, Sun, Moon, Settings, FileText, HelpCircle, LogOut, ExternalLink } from 'lucide-react';
 
 function Header() {
   const { user } = useAuth();
@@ -58,11 +58,6 @@ function Header() {
                 </div>
               </div>
               <div className="profile-menu-section">
-                <button className="profile-menu-item" role="menuitem">
-                  <CreditCard size={16} />
-                  <span>Subscription</span>
-                  <span className="item-meta">Free Trial</span>
-                </button>
                 <button className="profile-menu-item" role="menuitem" onClick={() => openSettings(setOpen)}>
                   <Settings size={16} />
                   <span>Settings</span>
