@@ -7,6 +7,7 @@ import CashierDashboard from './components/cashier/Dashboard';
 import AdminDashboard from './components/admin/Dashboard';
 import Settings from './components/settings/Settings';
 import SettingsStandalone from './components/settings/SettingsStandalone';
+import Help from './components/Help';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Header from './components/Header';
@@ -38,25 +39,28 @@ function AppRoutes() {
   return (
     <>
       <SettingsEventBridge />
-      {(!user) ? (
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
-      ) : (
-        <Routes>
-          <Route path="/login" element={<Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={
-            user.role === 'patient' ? <PatientDashboard /> :
-            user.role === 'doctor' ? <DoctorDashboard /> :
-            user.role === 'cashier' ? <CashierDashboard /> :
-            user.role === 'admin' ? <AdminDashboard /> :
-            <Navigate to="/login" />
-          } />
-          <Route path="/settings" element={<SettingsStandalone />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      )}
+      <Routes>
+        <Route path="/help" element={<Help />} />
+        {(!user) ? (
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" />} />
+          </>
+        ) : (
+          <>
+            <Route path="/login" element={<Navigate to="/dashboard" />} />
+            <Route path="/dashboard" element={
+              user.role === 'patient' ? <PatientDashboard /> :
+              user.role === 'doctor' ? <DoctorDashboard /> :
+              user.role === 'cashier' ? <CashierDashboard /> :
+              user.role === 'admin' ? <AdminDashboard /> :
+              <Navigate to="/login" />
+            } />
+            <Route path="/settings" element={<SettingsStandalone />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </>
+        )}
+      </Routes>
     </>
   );
 }
@@ -92,6 +96,6 @@ function SettingsEventBridge() {
 
 function ConditionalHeader() {
   const location = require('react-router-dom').useLocation();
-  if (location.pathname === '/settings') return null;
+  if (location.pathname === '/settings' || location.pathname === '/help') return null;
   return <Header />;
 }
