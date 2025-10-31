@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { HelpCircle } from 'lucide-react';
 import './Login.css';
 
 const Login = () => {
@@ -64,6 +66,10 @@ const Login = () => {
 
         <div className="login-footer">
           <p>Default Admin: admin@hospital.com / admin123</p>
+          <Link to="/help" className="help-link">
+            <HelpCircle size={16} />
+            <span>Need Help?</span>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { User, Sun, Moon, Settings, FileText, HelpCircle, LogOut, ExternalLink } from 'lucide-react';
@@ -67,10 +68,10 @@ function Header() {
                   <span>Terms & Policies</span>
                   <ExternalLink size={16} className="item-trail" />
                 </a>
-                <a className="profile-menu-item" role="menuitem" href="#" target="_blank" rel="noreferrer">
+                <Link className="profile-menu-item" role="menuitem" to="/help" onClick={() => setOpen(false)}>
                   <HelpCircle size={16} />
                   <span>Help</span>
-                </a>
+                </Link>
                 <button className="profile-menu-item" role="menuitem" onClick={() => handleLogout()}>
                   <LogOut size={16} />
                   <span>Logout</span>
