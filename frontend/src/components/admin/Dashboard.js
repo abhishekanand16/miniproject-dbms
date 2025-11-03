@@ -1,22 +1,46 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { Users, Calendar, DollarSign, Activity, LogOut, UserPlus, Settings, Trash2, Edit } from 'lucide-react';
-import SettingsPage from '../settings/Settings';
+import { Users, Calendar, DollarSign, Activity, LogOut, UserPlus, Trash2, Edit, Settings } from 'lucide-react';
+import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({});
-  const [activeTab, setActiveTab] = useState('overview');
+  
   const [users, setUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [bills, setBills] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient' });
+  const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
   const [loading, setLoading] = useState(true);
+
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Sync activeTab with URL changes
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/admin/settings') {
+      setActiveTab('settings');
+    } else if (path === '/admin/overview') {
+      setActiveTab('overview');
+    } else if (path === '/admin/users') {
+      setActiveTab('users');
+    } else if (path === '/admin/appointments') {
+      setActiveTab('appointments');
+    } else if (path === '/admin/billing') {
+      setActiveTab('billing');
+    } else if (path === '/admin') {
+      // Redirect to overview if just /admin
+      navigate('/admin/overview', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     fetchStats();
@@ -25,11 +49,20 @@ const AdminDashboard = () => {
     if (activeTab === 'billing') fetchBills();
   }, [activeTab]);
 
-  useEffect(() => {
-    function onOpenSettings() { setActiveTab('settings'); }
-    window.addEventListener('app:open-settings', onOpenSettings);
-    return () => window.removeEventListener('app:open-settings', onOpenSettings);
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const routeMap = {
+      'overview': '/admin/overview',
+      'users': '/admin/users',
+      'appointments': '/admin/appointments',
+      'billing': '/admin/billing',
+      'settings': '/admin/settings'
+    };
+    const route = routeMap[tab];
+    if (route) {
+      navigate(route, { replace: true });
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -97,15 +130,24 @@ const AdminDashboard = () => {
     try {
       const endpoint = `/api/auth/register/${userForm.role}`;
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:3001${endpoint}`, userForm, {
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+      console.log('Creating user:', { endpoint, userForm });
+      const response = await axios.post(`http://localhost:3001${endpoint}`, userForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      alert(response.data.message || 'User created successfully!');
       setShowUserModal(false);
-      setUserForm({ email: '', password: '', name: '', role: 'patient' });
+      setUserForm({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
       fetchUsers();
       fetchStats();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to create user');
+      console.error('User creation error:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create user';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -125,11 +167,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.put(
+      const response = await axios.put(
         `http://localhost:3001/api/admin/users/${selectedUser.role}/${selectedUser.email}`,
         userForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      alert(response.data.message || 'User updated successfully!');
       setShowEditModal(false);
       setSelectedUser(null);
       fetchUsers();
@@ -142,9 +185,10 @@ const AdminDashboard = () => {
     if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`, {
+      const response = await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      alert(response.data.message || 'User deleted successfully!');
       fetchUsers();
       fetchStats();
     } catch (error) {
@@ -156,7 +200,10 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       <div className="sidebar glass-surface">
         <div className="sidebar-header">
-          <h2>🏥 HMS</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
+            <h2>HMS</h2>
+          </div>
           <p>Admin Portal</p>
         </div>
         <div className="sidebar-user">
@@ -166,35 +213,35 @@ const AdminDashboard = () => {
         <div className="sidebar-menu">
           <div 
             className={`menu-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('overview')}
           >
             <Activity size={20} />
             <span>Overview</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            onClick={() => handleTabChange('users')}
           >
             <Users size={20} />
             <span>Users</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'appointments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('appointments')}
+            onClick={() => handleTabChange('appointments')}
           >
             <Calendar size={20} />
             <span>Appointments</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'billing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('billing')}
+            onClick={() => handleTabChange('billing')}
           >
             <DollarSign size={20} />
             <span>Billing</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             <Settings size={20} />
             <span>Settings</span>
@@ -208,12 +255,13 @@ const AdminDashboard = () => {
 
       <div className="dashboard-content">
         <div className="content-wrapper">
+        {activeTab === 'settings' ? (
+          <SettingsComponent />
+        ) : (
+          <>
         <div className="dashboard-header">
           <h1>Admin Dashboard</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
-              <Settings size={18} />
-            </button>
             {activeTab === 'users' && (
               <button className="primary-button" onClick={() => setShowUserModal(true)}>
                 <UserPlus size={20} />
@@ -405,8 +453,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
-        {activeTab === 'settings' && (
-          <SettingsPage />
+          </>
         )}
         </div>
       </div>
@@ -522,6 +569,15 @@ const AdminDashboard = () => {
                       type="text"
                       value={userForm.phone || ''}
                       onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Date of Birth</label>
+                    <input
+                      type="date"
+                      value={userForm.dateOfBirth || ''}
+                      onChange={(e) => setUserForm({ ...userForm, dateOfBirth: e.target.value })}
                       className="form-input"
                     />
                   </div>

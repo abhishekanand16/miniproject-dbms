@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Sun, Moon, Settings, FileText, HelpCircle, LogOut, ExternalLink } from 'lucide-react';
+import { User, Sun, Moon, FileText, HelpCircle, LogOut, ExternalLink, Settings } from 'lucide-react';
 
 function Header() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -24,6 +25,7 @@ function Header() {
   return (
     <header className="app-header glass-surface">
       <div className="header-left">
+        <img src="/hospital-logo.svg" alt="Hospital Logo" className="header-logo" />
         <span className="app-title">{displayName}</span>
       </div>
       <div className="header-right">
@@ -38,7 +40,7 @@ function Header() {
         <div className="profile-wrapper" ref={menuRef}>
           <button
             className="avatar"
-            title={user?.email || 'Profile'}
+            title={`${user?.name || 'User'} (${user?.email || ''})`}
             onClick={() => setOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={open}
@@ -59,10 +61,15 @@ function Header() {
                 </div>
               </div>
               <div className="profile-menu-section">
-                <button className="profile-menu-item" role="menuitem" onClick={() => openSettings(setOpen)}>
+                <Link 
+                  className="profile-menu-item" 
+                  role="menuitem" 
+                  to={user?.role ? `/${user.role === 'admin' ? 'admin' : user.role === 'doctor' ? 'doc' : user.role}/settings` : '/settings'} 
+                  onClick={() => setOpen(false)}
+                >
                   <Settings size={16} />
                   <span>Settings</span>
-                </button>
+                </Link>
                 <a className="profile-menu-item" role="menuitem" href="#" target="_blank" rel="noreferrer">
                   <FileText size={16} />
                   <span>Terms & Policies</span>
@@ -72,14 +79,13 @@ function Header() {
                   <HelpCircle size={16} />
                   <span>Help</span>
                 </Link>
-                <button className="profile-menu-item" role="menuitem" onClick={() => handleLogout()}>
+                <button className="profile-menu-item" role="menuitem" onClick={() => { setOpen(false); handleLogout(logout, navigate); }}>
                   <LogOut size={16} />
                   <span>Logout</span>
                 </button>
               </div>
               <div className="profile-menu-footer">
-                <button className="danger" onClick={() => handleLogout()}>Logout</button>
-                <button className="warning" onClick={handleClearData}>Clear Data</button>
+                <button className="danger" onClick={() => { setOpen(false); handleLogout(logout, navigate); }}>Logout</button>
               </div>
             </div>
           )}
@@ -89,24 +95,17 @@ function Header() {
   );
 }
 
-function handleClearData() {
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {}
-  window.location.reload();
-}
-
-function handleLogout() {
-  // Use a custom event to avoid importing Auth here (keeps this function pure for testing)
-  const evt = new CustomEvent('app:logout');
-  window.dispatchEvent(evt);
-}
-
-function openSettings(closeMenu) {
-  try { if (typeof closeMenu === 'function') closeMenu(false); } catch {}
-  const evt = new CustomEvent('app:open-settings');
-  window.dispatchEvent(evt);
+function handleLogout(logoutFn, navigateFn) {
+  if (logoutFn) {
+    logoutFn();
+    if (navigateFn) {
+      navigateFn('/login');
+    }
+  } else {
+    // Fallback to custom event if logout function not provided
+    const evt = new CustomEvent('app:logout');
+    window.dispatchEvent(evt);
+  }
 }
 
 function capitalize(str) {

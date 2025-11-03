@@ -1,0 +1,24 @@
+{
+  "name": "miniproject-dbms",
+  "version": "1.0.0",
+  "description": "A modern, full-stack Hospital Management System with role-based dashboards for Patients, Doctors, Cashiers, and Administrators.",
+  "main": "setup_database.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhishekanand16/miniproject-dbms.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/abhishekanand16/miniproject-dbms/issues"
+  },
+  "homepage": "https://github.com/abhishekanand16/miniproject-dbms#readme",
+  "dependencies": {
+    "mysql2": "^3.15.3"
+  }
+}

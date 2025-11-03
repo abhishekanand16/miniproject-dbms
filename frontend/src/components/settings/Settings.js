@@ -4,7 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useStyle } from '../../context/StyleProvider';
 import { useAuth } from '../../context/AuthContext';
 import { useFinancialData } from '../../context/FinancialDataContext';
-import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
+import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut } from 'lucide-react';
+import axios from 'axios';
 import './settings-standalone.css';
 
 const Settings = () => {
@@ -12,7 +13,7 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useStyle();
   const { user, setUser, logout } = useAuth();
-  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount, clearUserData } = useFinancialData();
+  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount } = useFinancialData();
 
   const [activeTab, setActiveTab] = useState('profile');
   const isGlass = style === 'glass';
@@ -41,10 +42,36 @@ const Settings = () => {
     { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
   ];
 
-  const handleProfileUpdate = useCallback(() => {
-    const next = { ...(user || {}), name: (username || '').trim() };
-    setUser(next);
-    try { localStorage.setItem('user', JSON.stringify(next)); } catch {}
+  const handleProfileUpdate = useCallback(async () => {
+    const trimmedName = (username || '').trim();
+    if (!trimmedName) {
+      alert('Username cannot be empty');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      const response = await axios.put('http://localhost:3001/api/profile', 
+        { name: trimmedName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state with the response
+      const updatedUser = response.data.user;
+      setUser(updatedUser);
+      try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch {}
+      
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
+      alert(`Error: ${errorMessage}`);
+    }
   }, [setUser, user, username]);
 
   const handleFinancialUpdate = useCallback(() => {
@@ -67,27 +94,6 @@ const Settings = () => {
     }
   }, [profileKey]);
 
-  const handleClearData = useCallback(() => {
-    const ok = window.confirm('This action cannot be undone. Clear demo settings and profile?');
-    if (!ok) return;
-    try {
-      localStorage.removeItem('financial_data');
-      localStorage.removeItem('ui_style');
-      localStorage.removeItem('themePreference');
-      localStorage.removeItem('username');
-      localStorage.removeItem(profileKey);
-    } catch {}
-    setUser({ ...(user || {}), name: '' });
-    setUsername('');
-    setCurrency('INR');
-    setSalaryAmount(0);
-    setMonthlyExpenseAmount(0);
-    setTempSalaryAmount('0');
-    setTempExpenseAmount('0');
-    setProfileSrc('');
-    if (clearUserData) clearUserData();
-    window.location.reload();
-  }, [profileKey, setCurrency, setMonthlyExpenseAmount, setSalaryAmount, setUser, user, clearUserData]);
 
   const handleLogout = useCallback(() => {
     const ok = window.confirm('Logout and clear demo profile picture?');
@@ -165,14 +171,10 @@ const Settings = () => {
                   <SettingsIcon className="icon" />
                   Account Actions
                 </div>
-                <div className="card-desc">Clear your data or logout from your account.</div>
+                <div className="card-desc">Logout from your account.</div>
               </div>
               <div className="card-content">
                 <div className="row wrap">
-                  <button className="btn btn-destructive" onClick={handleClearData}>
-                    <Trash2 className="icon" />
-                    Clear Data
-                  </button>
                   <button className="btn btn-outline red" onClick={handleLogout}>
                     <LogOut className="icon" />
                     Logout

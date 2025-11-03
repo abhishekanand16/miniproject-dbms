@@ -81,6 +81,7 @@ code { font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', mon
 
 .app-title { font-size: 18px; font-weight: 600; color: var(--text-primary); }
 .header-left { display: flex; align-items: center; gap: 10px; }
+.header-logo { width: 36px; height: 36px; display: block; }
 .header-right { display: flex; align-items: center; gap: 12px; }
 
 .theme-toggle {

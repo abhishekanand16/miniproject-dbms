@@ -1,5 +1,9 @@
 -- Hospital Management System Seed Data
 -- Insert sample data for testing
+-- This script assumes the hms_data database exists and is being used
+
+-- Use the hms_data database
+USE hms_data;
 
 -- Admin Account (Default credentials: admin@hospital.com / admin123)
 -- Note: Password will be automatically hashed on first login

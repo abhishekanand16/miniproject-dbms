@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { Calendar, Clock, User, FileText, Plus, LogOut, Activity, Settings } from 'lucide-react';
-import SettingsPage from '../settings/Settings';
+import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
+  
+  // Sync activeTab with URL
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [doctors, setDoctors] = useState([]);
@@ -22,16 +27,35 @@ const PatientDashboard = () => {
     symptoms: ''
   });
 
+  // Sync activeTab with URL changes
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/patient/settings') {
+      setActiveTab('settings');
+    } else if (path === '/patient/dashboard') {
+      setActiveTab('dashboard');
+    } else if (path === '/patient') {
+      // Redirect to dashboard if just /patient
+      navigate('/patient/dashboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
   }, []);
 
-  useEffect(() => {
-    function onOpenSettings() { setActiveTab('settings'); }
-    window.addEventListener('app:open-settings', onOpenSettings);
-    return () => window.removeEventListener('app:open-settings', onOpenSettings);
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const routeMap = {
+      'dashboard': '/patient/dashboard',
+      'settings': '/patient/settings'
+    };
+    const route = routeMap[tab];
+    if (route) {
+      navigate(route, { replace: true });
+    }
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -56,7 +80,8 @@ const PatientDashboard = () => {
   const handleScheduleAppointment = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3001/api/patient/appointments', scheduleForm);
+      const response = await axios.post('http://localhost:3001/api/patient/appointments', scheduleForm);
+      alert(response.data.message || 'Appointment scheduled successfully!');
       setShowScheduleModal(false);
       setScheduleForm({
         doctorEmail: '',
@@ -84,7 +109,10 @@ const PatientDashboard = () => {
     <div className="dashboard-container">
       <div className="sidebar">
         <div className="sidebar-header">
-          <h2>🏥 HMS</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
+            <h2>HMS</h2>
+          </div>
           <p>Patient Portal</p>
         </div>
         <div className="sidebar-user">
@@ -94,14 +122,14 @@ const PatientDashboard = () => {
         <div className="sidebar-menu">
           <div 
             className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
           >
             <Activity size={20} />
             <span>Dashboard</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             <Settings size={20} />
             <span>Settings</span>
@@ -115,14 +143,13 @@ const PatientDashboard = () => {
 
       <div className="dashboard-content">
         <div className="content-wrapper">
-        {activeTab === 'dashboard' && (
+        {activeTab === 'settings' ? (
+          <SettingsComponent />
+        ) : activeTab === 'dashboard' && (
         <>
         <div className="dashboard-header">
           <h1>Welcome, {user?.name}!</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
-              <Settings size={18} />
-            </button>
             <button className="primary-button" onClick={() => setShowScheduleModal(true)}>
               <Plus size={20} />
               Schedule Appointment
@@ -201,7 +228,6 @@ const PatientDashboard = () => {
         </div>
         </>
         )}
-        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 

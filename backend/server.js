@@ -4,6 +4,7 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -13,14 +14,47 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 app.use(cors());
 app.use(express.json());
 
-const pool = mysql.createPool({
+// MySQL connection configuration
+// On macOS, mysql2 will automatically use socket connection when host is 'localhost'
+// Explicitly set socketPath only if provided via environment variable
+const poolConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'HMS',
+  password: process.env.DB_PASSWORD || 'root123',
+  database: process.env.DB_NAME || 'hms_data',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // Connection pool lifecycle settings
+  acquireTimeout: 60000, // 60 seconds to acquire connection
+  idleTimeout: 300000, // 5 minutes before idle connection is removed
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
+};
+
+// Only set socketPath if explicitly provided or on macOS and socket exists
+if (process.env.DB_SOCKET_PATH) {
+  poolConfig.socketPath = process.env.DB_SOCKET_PATH;
+} else if (process.platform === 'darwin') {
+  // Try to use socket path on macOS if it exists
+  const socketPath = '/tmp/mysql.sock';
+  if (fs.existsSync(socketPath)) {
+    poolConfig.socketPath = socketPath;
+  }
+}
+
+const pool = mysql.createPool(poolConfig);
+
+// Handle connection pool errors
+pool.on('connection', (connection) => {
+  console.log('New MySQL connection established');
+});
+
+pool.on('error', (err) => {
+  console.error('MySQL pool error:', err);
+  if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+    console.log('Attempting to reconnect to MySQL...');
+  }
 });
 
 const authenticateToken = (req, res, next) => {
@@ -40,14 +74,51 @@ const checkRole = (...roles) => (req, res, next) => {
   next();
 };
 
-const query = async (sql, params) => {
-  try {
-    const [results] = await pool.execute(sql, params);
-    return results;
-  } catch (error) {
-    console.error('Database error:', error);
-    throw error;
+const query = async (sql, params, retries = 2) => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const [results] = await pool.execute(sql, params);
+      return results;
+    } catch (error) {
+      // Handle connection errors with retry logic
+      if ((error.code === 'ECONNRESET' || 
+           error.code === 'PROTOCOL_CONNECTION_LOST' || 
+           error.code === 'EPIPE') && attempt < retries) {
+        console.warn(`Database connection error (attempt ${attempt + 1}/${retries + 1}):`, error.code);
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        continue;
+      }
+      
+      console.error('Database error:', error.code || error.message);
+      console.error('SQL:', sql);
+      console.error('Params:', params);
+      throw error;
+    }
   }
+};
+
+// Helper function to get insertId from INSERT query result
+const getInsertId = (result) => {
+  // mysql2's pool.execute() returns [OkPacket, fields] for INSERT queries
+  // The query() function extracts the first element (OkPacket), which has insertId property
+  if (result && typeof result === 'object') {
+    // Check if result directly has insertId (OkPacket)
+    if ('insertId' in result && result.insertId !== undefined && result.insertId !== 0) {
+      return result.insertId;
+    }
+    // Fallback: check if result is an array and first element has insertId
+    if (Array.isArray(result) && result.length > 0 && result[0] && result[0].insertId !== undefined && result[0].insertId !== 0) {
+      return result[0].insertId;
+    }
+    // Additional fallback: check if result has affectedRows (OkPacket structure)
+    if (result.affectedRows && result.insertId !== undefined && result.insertId !== 0) {
+      return result.insertId;
+    }
+    // Log for debugging if insertId not found
+    console.warn('Could not find insertId in result:', JSON.stringify(result, null, 2));
+  }
+  return null;
 };
 
 const safeCount = async (table, whereClause = '', params = []) => {
@@ -83,33 +154,87 @@ app.post('/api/auth/register/patient', async (req, res) => {
     await query('INSERT INTO Patient (email, password, name, address, gender, phone, date_of_birth) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [email, hashedPassword, name, address || null, gender || null, phone || null, dateOfBirth || null]);
 
-    const [historyResult] = await query('INSERT INTO MedicalHistory (date, conditions, surgeries, medication, allergies) VALUES (?, ?, ?, ?, ?)',
-      [new Date(), null, null, null, null]);
-    await query('INSERT INTO PatientsFillHistory (patient, history) VALUES (?, ?)', [email, historyResult.insertId]);
+    // Format date as YYYY-MM-DD for MySQL DATE field
+    const today = new Date().toISOString().split('T')[0];
+    const historyResult = await query('INSERT INTO MedicalHistory (date, conditions, surgeries, medication, allergies) VALUES (?, ?, ?, ?, ?)',
+      [today, null, null, null, null]);
+    const historyId = getInsertId(historyResult);
+    if (!historyId) {
+      console.error('Failed to get insertId from MedicalHistory insert:', historyResult);
+      throw new Error('Failed to create medical history record');
+    }
+    await query('INSERT INTO PatientsFillHistory (patient, history) VALUES (?, ?)', [email, historyId]);
 
     res.status(201).json({ message: 'Patient registered successfully' });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Registration failed' });
   }
 });
 
 app.post('/api/auth/register/doctor', authenticateToken, checkRole('admin'), async (req, res) => {
   try {
+    console.log('Doctor registration request received:', { 
+      email: req.body?.email, 
+      name: req.body?.name,
+      hasPassword: !!req.body?.password,
+      hasSpecialization: !!req.body?.specialization 
+    });
+    
     const { email, password, name, gender, specialization, phone } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: 'Email, password, and name are required' });
+    
+    // Validation
+    if (!email || !password || !name) {
+      console.error('Validation failed: Missing required fields', { email: !!email, password: !!password, name: !!name });
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
 
+    // Check if doctor already exists
+    console.log('Checking if doctor exists:', email);
     const existing = await query('SELECT email FROM Doctor WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(400).json({ error: 'Doctor already exists' });
+    if (existing.length > 0) {
+      console.error('Doctor already exists:', email);
+      return res.status(400).json({ error: 'Doctor already exists' });
+    }
 
+    // Hash password
+    console.log('Hashing password for doctor:', email);
     const hashedPassword = await bcrypt.hash(password, 10);
-    await query('INSERT INTO Doctor (email, password, name, gender, specialization, phone) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, hashedPassword, name, gender || null, specialization || null, phone || null]);
-
+    
+    // Insert doctor (convert empty strings to null for optional fields)
+    console.log('Inserting doctor into database:', email);
+    const doctorData = [
+      email, 
+      hashedPassword, 
+      name, 
+      (gender && gender.trim()) || null, 
+      (specialization && specialization.trim()) || null, 
+      (phone && phone.trim()) || null
+    ];
+    console.log('Doctor data to insert:', { email, name, hasGender: !!doctorData[3], hasSpecialization: !!doctorData[4], hasPhone: !!doctorData[5] });
+    await query('INSERT INTO Doctor (email, password, name, gender, specialization, phone) VALUES (?, ?, ?, ?, ?, ?)', doctorData);
+    
+    console.log('Doctor registered successfully:', email);
     res.status(201).json({ message: 'Doctor registered successfully' });
   } catch (error) {
     console.error('Doctor registration error:', error);
-    res.status(500).json({ error: 'Doctor registration failed' });
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Doctor registration failed';
+    if (error.code === 'ECONNRESET' || error.code === 'PROTOCOL_CONNECTION_LOST') {
+      errorMessage = 'Database connection lost. Please try again.';
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      errorMessage = 'A doctor with this email already exists.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -127,7 +252,8 @@ app.post('/api/auth/register/cashier', authenticateToken, checkRole('admin'), as
     res.status(201).json({ message: 'Cashier registered successfully' });
   } catch (error) {
     console.error('Cashier registration error:', error);
-    res.status(500).json({ error: 'Cashier registration failed' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Cashier registration failed' });
   }
 });
 
@@ -145,7 +271,8 @@ app.post('/api/auth/register/admin', authenticateToken, checkRole('admin'), asyn
     res.status(201).json({ message: 'Admin registered successfully' });
   } catch (error) {
     console.error('Admin registration error:', error);
-    res.status(500).json({ error: 'Admin registration failed' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Admin registration failed' });
   }
 });
 
@@ -202,6 +329,80 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', authenticateToken, async (req, res) => res.json({ user: req.user }));
 
+// ==================== PROFILE UPDATE ROUTES ====================
+// Allow users to update their own profile
+app.put('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, address, gender, phone, specialization } = req.body;
+    const { email, role } = req.user;
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const tableMap = { admin: 'Admin', patient: 'Patient', doctor: 'Doctor', cashier: 'Cashier' };
+    const table = tableMap[role];
+    if (!table) return res.status(400).json({ error: 'Invalid role' });
+
+    const fields = ['name = ?'];
+    const params = [name.trim()];
+
+    // Add optional fields based on role
+    if (role === 'patient') {
+      if (address !== undefined) {
+        fields.push('address = ?');
+        params.push(address || null);
+      }
+      if (gender !== undefined) {
+        fields.push('gender = ?');
+        params.push(gender || null);
+      }
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    } else if (role === 'doctor') {
+      if (specialization !== undefined) {
+        fields.push('specialization = ?');
+        params.push(specialization || null);
+      }
+      if (gender !== undefined) {
+        fields.push('gender = ?');
+        params.push(gender || null);
+      }
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    } else if (role === 'cashier') {
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    }
+
+    params.push(email);
+    await query(`UPDATE ${table} SET ${fields.join(', ')} WHERE email = ?`, params);
+    
+    // Fetch updated user data
+    let selectFields = 'email, name';
+    if (role === 'patient') selectFields += ', address, gender, phone';
+    else if (role === 'doctor') selectFields += ', gender, specialization, phone';
+    else if (role === 'cashier') selectFields += ', phone';
+    
+    const updated = await query(`SELECT ${selectFields} FROM ${table} WHERE email = ?`, [email]);
+    const userData = updated[0];
+    
+    res.json({ 
+      message: 'Profile updated successfully', 
+      user: { ...userData, role } 
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 // ==================== PATIENT ROUTES ====================
 app.get('/api/patient/appointments', authenticateToken, checkRole('patient'), async (req, res) => {
   try {
@@ -232,8 +433,11 @@ app.post('/api/patient/appointments', authenticateToken, checkRole('patient'), a
     const [conflicts] = await query(`SELECT id FROM Appointment WHERE date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`, [date, startTime, startTime, endTime, endTime, startTime, endTime]);
     if (conflicts.length > 0) return res.status(400).json({ error: 'Time slot already booked' });
 
-    const [apptResult] = await query(`INSERT INTO Appointment (date, starttime, endtime, status) VALUES (?, ?, ?, 'NotDone')`, [date, startTime, endTime]);
-    const appointmentId = apptResult.insertId;
+    const apptResult = await query(`INSERT INTO Appointment (date, starttime, endtime, status) VALUES (?, ?, ?, 'NotDone')`, [date, startTime, endTime]);
+    const appointmentId = getInsertId(apptResult);
+    if (!appointmentId) {
+      throw new Error('Failed to get appointment ID from insert');
+    }
 
     await query(`INSERT INTO PatientsAttendAppointments (patient, appt, concerns, symptoms) VALUES (?, ?, ?, ?)`, [req.user.email, appointmentId, concerns || '', symptoms || '']);
     await query(`INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, '', '')`, [appointmentId, doctorEmail]);
@@ -313,8 +517,9 @@ app.post('/api/cashier/billing', authenticateToken, checkRole('cashier'), async 
   try {
     const { appointmentId, patientEmail, amount } = req.body;
     if (!patientEmail || !amount) return res.status(400).json({ error: 'Patient email and amount are required' });
-    const [result] = await query(`INSERT INTO Billing (appointment_id, patient_email, amount, payment_status) VALUES (?, ?, ?, 'Pending')`, [appointmentId || null, patientEmail, amount]);
-    res.status(201).json({ message: 'Billing record created', id: result.insertId });
+    const result = await query(`INSERT INTO Billing (appointment_id, patient_email, amount, payment_status) VALUES (?, ?, ?, 'Pending')`, [appointmentId || null, patientEmail, amount]);
+    const billingId = getInsertId(result);
+    res.status(201).json({ message: 'Billing record created', id: billingId });
   } catch (error) {
     console.error('Error creating billing:', error);
     res.status(500).json({ error: 'Failed to create billing record' });
@@ -424,7 +629,45 @@ app.put('/api/admin/users/:role/:email', authenticateToken, checkRole('admin'), 
   }
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'HMS API running' }));
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    await pool.execute('SELECT 1');
+    res.json({ status: 'OK', message: 'HMS API running', database: 'connected' });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'ERROR', 
+      message: 'HMS API running but database connection failed',
+      error: error.code || error.message 
+    });
+  }
+});
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Test database connection on startup
+async function testConnection() {
+  try {
+    await pool.execute('SELECT 1');
+    console.log('✓ Database connection successful');
+  } catch (error) {
+    console.error('✗ Database connection failed:', error.message);
+    console.error('Error code:', error.code);
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOENT') {
+      console.error('\n⚠️  Possible solutions:');
+      console.error('   1. Make sure MySQL server is running');
+      console.error('   2. Check socket path (trying:', process.env.DB_SOCKET_PATH || '/tmp/mysql.sock', ')');
+      console.error('   3. Try starting MySQL: brew services start mysql');
+    }
+  }
+}
+
+// Test connection and start server
+testConnection().then(() => {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Server running on port ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
+  });
+}).catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
 
