@@ -132,6 +132,63 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchDoctors = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/api/doctors');
+      setDoctors(response.data);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
+
+  const handleEditAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setAppointmentForm({
+      date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '',
+      startTime: appointment.starttime || '',
+      endTime: appointment.endtime || '',
+      status: appointment.status || '',
+      doctorEmail: appointment.doctor_email || '',
+      concerns: appointment.concerns || '',
+      symptoms: appointment.symptoms || ''
+    });
+    setShowEditAppointmentModal(true);
+  };
+
+  const handleUpdateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:3001/api/admin/appointments/${selectedAppointment.id}`,
+        appointmentForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert(response.data.message || 'Appointment updated successfully!');
+      setShowEditAppointmentModal(false);
+      setSelectedAppointment(null);
+      fetchAppointments();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update appointment');
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`http://localhost:3001/api/admin/appointments/${appointmentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert(response.data.message || 'Appointment deleted successfully!');
+      fetchAppointments();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete appointment');
+    }
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
@@ -401,6 +458,7 @@ const AdminDashboard = () => {
                     <th>Patient</th>
                     <th>Doctor</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -416,6 +474,24 @@ const AdminDashboard = () => {
                         }}>
                           {apt.status}
                         </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            className="primary-button"
+                            onClick={() => handleEditAppointment(apt)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="secondary-button"
+                            onClick={() => handleDeleteAppointment(apt.id)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -711,6 +787,98 @@ const AdminDashboard = () => {
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">Update User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditAppointmentModal && selectedAppointment && (
+        <div className="modal-overlay" onClick={() => setShowEditAppointmentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Appointment</h2>
+            <form onSubmit={handleUpdateAppointment}>
+              <div className="form-group">
+                <label>Date *</label>
+                <input
+                  type="date"
+                  value={appointmentForm.date}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Time *</label>
+                  <input
+                    type="time"
+                    value={appointmentForm.startTime}
+                    onChange={(e) => setAppointmentForm({ ...appointmentForm, startTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Time *</label>
+                  <input
+                    type="time"
+                    value={appointmentForm.endTime}
+                    onChange={(e) => setAppointmentForm({ ...appointmentForm, endTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  value={appointmentForm.status}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, status: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="NotDone">NotDone</option>
+                  <option value="Done">Done</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Doctor</label>
+                <select
+                  value={appointmentForm.doctorEmail}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, doctorEmail: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">Select Doctor</option>
+                  {doctors.map(doc => (
+                    <option key={doc.email} value={doc.email}>
+                      {doc.name} - {doc.specialization}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Concerns</label>
+                <textarea
+                  value={appointmentForm.concerns}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, concerns: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="form-group">
+                <label>Symptoms</label>
+                <textarea
+                  value={appointmentForm.symptoms}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, symptoms: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setShowEditAppointmentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-button">Update Appointment</button>
               </div>
             </form>
           </div>
