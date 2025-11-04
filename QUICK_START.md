@@ -47,3 +47,4 @@ Check that tables are created:
 mysql -uroot -proot123 -e "USE hms_data; SHOW TABLES;"
 ```
 
+
