@@ -449,6 +449,134 @@ app.post('/api/patient/appointments', authenticateToken, checkRole('patient'), a
   }
 });
 
+app.put('/api/patient/appointments/:id', authenticateToken, checkRole('patient'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, startTime, endTime, doctorEmail, concerns, symptoms } = req.body;
+    
+    // Verify the appointment belongs to this patient
+    const patientAppointments = await query(
+      'SELECT appt FROM PatientsAttendAppointments WHERE appt = ? AND patient = ?',
+      [id, req.user.email]
+    );
+    if (patientAppointments.length === 0) {
+      return res.status(403).json({ error: 'You can only modify your own appointments' });
+    }
+
+    // Check if appointment is already done
+    const appointment = await query('SELECT status FROM Appointment WHERE id = ?', [id]);
+    if (appointment.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    if (appointment[0].status === 'Done') {
+      return res.status(400).json({ error: 'Cannot modify completed appointments' });
+    }
+
+    // Update appointment date/time if provided
+    if (date || startTime || endTime) {
+      const updates = [];
+      const params = [];
+      
+      if (date) {
+        updates.push('date = ?');
+        params.push(date);
+      }
+      if (startTime) {
+        updates.push('starttime = ?');
+        params.push(startTime);
+      }
+      if (endTime) {
+        updates.push('endtime = ?');
+        params.push(endTime);
+      }
+      
+      if (updates.length > 0) {
+        // Check for time conflicts
+        const currentAppt = await query('SELECT date, starttime, endtime FROM Appointment WHERE id = ?', [id]);
+        const checkDate = date || currentAppt[0].date;
+        const checkStartTime = startTime || currentAppt[0].starttime;
+        const checkEndTime = endTime || currentAppt[0].endtime;
+        
+        const conflicts = await query(
+          `SELECT id FROM Appointment WHERE id != ? AND date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`,
+          [id, checkDate, checkStartTime, checkStartTime, checkEndTime, checkEndTime, checkStartTime, checkEndTime]
+        );
+        if (conflicts.length > 0) {
+          return res.status(400).json({ error: 'Time slot already booked' });
+        }
+        
+        params.push(id);
+        await query(`UPDATE Appointment SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+    }
+
+    // Update doctor if provided
+    if (doctorEmail) {
+      const existing = await query('SELECT doctor FROM Diagnose WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        await query('UPDATE Diagnose SET doctor = ? WHERE appt = ?', [doctorEmail, id]);
+      } else {
+        await query('INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, ?, ?)', [id, doctorEmail, '', '']);
+      }
+    }
+
+    // Update concerns/symptoms if provided
+    if (concerns !== undefined || symptoms !== undefined) {
+      const updates = [];
+      const params = [];
+      if (concerns !== undefined) {
+        updates.push('concerns = ?');
+        params.push(concerns);
+      }
+      if (symptoms !== undefined) {
+        updates.push('symptoms = ?');
+        params.push(symptoms);
+      }
+      if (updates.length > 0) {
+        params.push(id);
+        await query(`UPDATE PatientsAttendAppointments SET ${updates.join(', ')} WHERE appt = ?`, params);
+      }
+    }
+
+    res.json({ message: 'Appointment updated successfully' });
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+app.delete('/api/patient/appointments/:id', authenticateToken, checkRole('patient'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify the appointment belongs to this patient
+    const patientAppointments = await query(
+      'SELECT appt FROM PatientsAttendAppointments WHERE appt = ? AND patient = ?',
+      [id, req.user.email]
+    );
+    if (patientAppointments.length === 0) {
+      return res.status(403).json({ error: 'You can only delete your own appointments' });
+    }
+
+    // Check if appointment is already done
+    const appointment = await query('SELECT status FROM Appointment WHERE id = ?', [id]);
+    if (appointment.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    if (appointment[0].status === 'Done') {
+      return res.status(400).json({ error: 'Cannot delete completed appointments' });
+    }
+
+    // Delete appointment (cascade will handle related records)
+    await query('DELETE FROM Appointment WHERE id = ?', [id]);
+    
+    res.json({ message: 'Appointment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    res.status(500).json({ error: 'Failed to delete appointment' });
+  }
+});
+
 // ==================== DOCTOR ROUTES ====================
 
 app.get('/api/doctor/appointments', authenticateToken, checkRole('doctor'), async (req, res) => {
@@ -562,6 +690,119 @@ app.get('/api/admin/appointments', authenticateToken, checkRole('admin'), async 
   } catch (error) {
     console.error('Error fetching appointments:', error);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+app.put('/api/admin/appointments/:id', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, startTime, endTime, status, doctorEmail, concerns, symptoms } = req.body;
+    
+    // Check if appointment exists
+    const appointments = await query('SELECT id FROM Appointment WHERE id = ?', [id]);
+    if (appointments.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    // Update appointment if date/time provided
+    if (date || startTime || endTime || status) {
+      const updates = [];
+      const params = [];
+      
+      if (date) {
+        updates.push('date = ?');
+        params.push(date);
+      }
+      if (startTime) {
+        updates.push('starttime = ?');
+        params.push(startTime);
+      }
+      if (endTime) {
+        updates.push('endtime = ?');
+        params.push(endTime);
+      }
+      if (status) {
+        updates.push('status = ?');
+        params.push(status);
+      }
+      
+      if (updates.length > 0) {
+        // Check for time conflicts if date/time is being changed
+        if (date || startTime || endTime) {
+          const appointmentData = await query('SELECT date, starttime, endtime FROM Appointment WHERE id = ?', [id]);
+          const checkDate = date || appointmentData[0].date;
+          const checkStartTime = startTime || appointmentData[0].starttime;
+          const checkEndTime = endTime || appointmentData[0].endtime;
+          
+          const conflicts = await query(
+            `SELECT id FROM Appointment WHERE id != ? AND date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`,
+            [id, checkDate, checkStartTime, checkStartTime, checkEndTime, checkEndTime, checkStartTime, checkEndTime]
+          );
+          if (conflicts.length > 0) {
+            return res.status(400).json({ error: 'Time slot already booked' });
+          }
+        }
+        
+        params.push(id);
+        await query(`UPDATE Appointment SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+    }
+
+    // Update doctor assignment if provided
+    if (doctorEmail !== undefined) {
+      const existing = await query('SELECT doctor FROM Diagnose WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        await query('UPDATE Diagnose SET doctor = ? WHERE appt = ?', [doctorEmail, id]);
+      } else {
+        await query('INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, ?, ?)', [id, doctorEmail, '', '']);
+      }
+    }
+
+    // Update patient concerns/symptoms if provided
+    if (concerns !== undefined || symptoms !== undefined) {
+      const existing = await query('SELECT patient FROM PatientsAttendAppointments WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        const updates = [];
+        const params = [];
+        if (concerns !== undefined) {
+          updates.push('concerns = ?');
+          params.push(concerns);
+        }
+        if (symptoms !== undefined) {
+          updates.push('symptoms = ?');
+          params.push(symptoms);
+        }
+        if (updates.length > 0) {
+          params.push(id);
+          await query(`UPDATE PatientsAttendAppointments SET ${updates.join(', ')} WHERE appt = ?`, params);
+        }
+      }
+    }
+
+    res.json({ message: 'Appointment updated successfully' });
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+app.delete('/api/admin/appointments/:id', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if appointment exists
+    const appointments = await query('SELECT id FROM Appointment WHERE id = ?', [id]);
+    if (appointments.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    // Delete appointment (cascade will handle related records)
+    await query('DELETE FROM Appointment WHERE id = ?', [id]);
+    
+    res.json({ message: 'Appointment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    res.status(500).json({ error: 'Failed to delete appointment' });
   }
 });
 

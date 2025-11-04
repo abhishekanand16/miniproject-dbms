@@ -4,7 +4,9 @@
   "description": "A modern, full-stack Hospital Management System with role-based dashboards for Patients, Doctors, Cashiers, and Administrators.",
   "main": "setup_database.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "backup": "node backup_database.js",
+    "backup-db": "node backup_database.js"
   },
   "repository": {
     "type": "git",

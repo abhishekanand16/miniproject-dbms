@@ -20,6 +20,10 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
   const [loading, setLoading] = useState(true);
+  const [showEditAppointmentModal, setShowEditAppointmentModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [appointmentForm, setAppointmentForm] = useState({ date: '', startTime: '', endTime: '', status: '', doctorEmail: '', concerns: '', symptoms: '' });
+  const [doctors, setDoctors] = useState([]);
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -45,7 +49,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchStats();
     if (activeTab === 'users') fetchUsers();
-    if (activeTab === 'appointments') fetchAppointments();
+    if (activeTab === 'appointments') {
+      fetchAppointments();
+      fetchDoctors();
+    }
     if (activeTab === 'billing') fetchBills();
   }, [activeTab]);
 
