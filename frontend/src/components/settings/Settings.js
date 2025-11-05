@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useStyle } from '../../context/StyleProvider';
 import { useAuth } from '../../context/AuthContext';
-import { useFinancialData } from '../../context/FinancialDataContext';
 import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut } from 'lucide-react';
 import axios from 'axios';
 import './settings-standalone.css';
@@ -13,7 +12,6 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useStyle();
   const { user, setUser, logout } = useAuth();
-  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount } = useFinancialData();
 
   const [activeTab, setActiveTab] = useState('profile');
   const isGlass = style === 'glass';
@@ -25,22 +23,6 @@ const Settings = () => {
   useEffect(() => {
     try { setProfileSrc(localStorage.getItem(profileKey) || ''); } catch {}
   }, [profileKey]);
-
-  const [tempSalaryAmount, setTempSalaryAmount] = useState(() => String(salaryAmount || 0));
-  const [tempExpenseAmount, setTempExpenseAmount] = useState(() => String(monthlyExpenseAmount || 0));
-
-  const currencyOptions = [
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
-  ];
 
   const handleProfileUpdate = useCallback(async () => {
     const trimmedName = (username || '').trim();
@@ -72,14 +54,7 @@ const Settings = () => {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
       alert(`Error: ${errorMessage}`);
     }
-  }, [setUser, user, username]);
-
-  const handleFinancialUpdate = useCallback(() => {
-    const salary = parseFloat(tempSalaryAmount) || 0;
-    const expense = parseFloat(tempExpenseAmount) || 0;
-    setSalaryAmount(salary);
-    setMonthlyExpenseAmount(expense);
-  }, [tempSalaryAmount, tempExpenseAmount, setSalaryAmount, setMonthlyExpenseAmount]);
+  }, [setUser, username]);
 
   const handleProfilePictureUpload = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -108,7 +83,7 @@ const Settings = () => {
       <div className={isGlass ? 'settings-container glass-card' : 'settings-container'} style={{ margin: '0', padding: '24px' }}>
         <div className="settings-title" style={{ marginBottom: '24px' }}>
           <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Settings</h1>
-          <p style={{ fontSize: '14px' }}>Manage your profile, financial preferences, and app appearance.</p>
+          <p style={{ fontSize: '14px' }}>Manage your profile and app appearance.</p>
         </div>
 
         <div className="tabs-list" style={{ marginBottom: '24px' }}>
@@ -184,8 +159,6 @@ const Settings = () => {
             </div>
           </div>
         )}
-
-        
 
         {activeTab === 'ui' && (
           <div className="card">

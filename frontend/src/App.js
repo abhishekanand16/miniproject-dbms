@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Header from './components/Header';
 import { StyleProvider } from './context/StyleProvider';
-import { FinancialDataProvider } from './context/FinancialDataContext';
 
 // Helper function to get role-based URL prefix
 function getRolePrefix(role) {
@@ -159,12 +158,10 @@ function App() {
     <Router>
       <ThemeProvider>
         <StyleProvider>
-          <FinancialDataProvider>
-            <AuthProvider>
-              <ConditionalHeader />
-              <AppRoutes />
-            </AuthProvider>
-          </FinancialDataProvider>
+          <AuthProvider>
+            <ConditionalHeader />
+            <AppRoutes />
+          </AuthProvider>
         </StyleProvider>
       </ThemeProvider>
     </Router>

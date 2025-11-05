@@ -70,7 +70,7 @@ function Header() {
                   <Settings size={16} />
                   <span>Settings</span>
                 </Link>
-                <a className="profile-menu-item" role="menuitem" href="#" target="_blank" rel="noreferrer">
+                <a className="profile-menu-item" role="menuitem" href="/terms" target="_blank" rel="noreferrer">
                   <FileText size={16} />
                   <span>Terms & Policies</span>
                   <ExternalLink size={16} className="item-trail" />
