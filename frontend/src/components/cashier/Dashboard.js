@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { DollarSign, Clock, CheckCircle, XCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
 import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
@@ -37,9 +37,21 @@ const CashierDashboard = () => {
     }
   }, [location.pathname, navigate]);
 
+  const fetchBills = useCallback(async () => {
+    try {
+      const params = filter !== 'all' ? { status: filter } : {};
+      const response = await axios.get('http://localhost:3001/api/cashier/billing', { params });
+      setBills(response.data);
+    } catch (error) {
+      console.error('Error fetching bills:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
   useEffect(() => {
     fetchBills();
-  }, [filter]);
+  }, [fetchBills]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -50,18 +62,6 @@ const CashierDashboard = () => {
     const route = routeMap[tab];
     if (route) {
       navigate(route, { replace: true });
-    }
-  };
-
-  const fetchBills = async () => {
-    try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await axios.get('http://localhost:3001/api/cashier/billing', { params });
-      setBills(response.data);
-    } catch (error) {
-      console.error('Error fetching bills:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -109,7 +109,7 @@ const CashierDashboard = () => {
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
-            <h2>HMS</h2>
+            <h2>{user?.name || 'User'}</h2>
           </div>
           <p>Cashier Portal</p>
         </div>

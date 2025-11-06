@@ -11,8 +11,6 @@ function Header() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const displayName = user?.name || 'Hospital Management System';
-
   useEffect(() => {
     function onDocClick(e) {
       if (!menuRef.current) return;
@@ -26,7 +24,7 @@ function Header() {
     <header className="app-header glass-surface">
       <div className="header-left">
         <img src="/hospital-logo.svg" alt="Hospital Logo" className="header-logo" />
-        <span className="app-title">{displayName}</span>
+        <span className="app-title">HMS</span>
       </div>
       <div className="header-right">
         <button

@@ -169,7 +169,7 @@ const PatientDashboard = () => {
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
-            <h2>HMS</h2>
+            <h2>{user?.name || 'User'}</h2>
           </div>
           <p>Patient Portal</p>
         </div>

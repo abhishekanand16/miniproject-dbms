@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { Calendar, Clock, User, FileText, LogOut, Activity, Stethoscope, Settings } from 'lucide-react';
+import { Calendar, Clock, FileText, LogOut, Activity, Stethoscope, Settings } from 'lucide-react';
 import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
@@ -94,7 +94,7 @@ const DoctorDashboard = () => {
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
-            <h2>HMS</h2>
+            <h2>{user?.name || 'User'}</h2>
           </div>
           <p>Doctor Portal</p>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './components/auth/Login';
 import PatientDashboard from './components/patient/Dashboard';
@@ -7,7 +7,7 @@ import CashierDashboard from './components/cashier/Dashboard';
 import AdminDashboard from './components/admin/Dashboard';
 import Help from './components/Help';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Header from './components/Header';
 import { StyleProvider } from './context/StyleProvider';
 

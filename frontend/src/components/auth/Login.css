@@ -17,6 +17,21 @@
   animation: slideUp 0.5s ease-out;
 }
 
+/* Glass theme login card */
+[data-style="glass"] .login-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,.25));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.3);
+  box-shadow: 0 8px 32px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+[data-style="glass"][data-theme="dark"] .login-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.05));
+  border: 1px solid rgba(5,191,247,.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4), 0 0 25px rgba(5,191,247,.15), inset 0 1px 0 rgba(5,191,247,.1);
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -47,9 +62,24 @@
   font-weight: 700;
 }
 
+/* Enhanced login header text for glass theme */
+[data-style="glass"] .login-header h1 {
+  text-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+[data-style="glass"][data-theme="dark"] .login-header h1 {
+  text-shadow: 0 2px 4px rgba(0,0,0,.4);
+}
+
 .login-header p {
   color: var(--text-secondary);
   font-size: 16px;
+}
+
+[data-style="glass"] .login-header p {
+  text-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+[data-style="glass"][data-theme="dark"] .login-header p {
+  text-shadow: 0 1px 2px rgba(0,0,0,.2);
 }
 
 .login-form {
@@ -70,6 +100,14 @@
   font-size: 14px;
 }
 
+/* Enhanced form labels for glass theme */
+[data-style="glass"] .form-group label {
+  text-shadow: 0 1px 1px rgba(0,0,0,.05);
+}
+[data-style="glass"][data-theme="dark"] .form-group label {
+  text-shadow: 0 1px 1px rgba(0,0,0,.2);
+}
+
 .form-input,
 .form-select {
   padding: 14px 16px;
@@ -87,6 +125,37 @@
   outline: none;
   border-color: rgba(102, 126, 234, 0.5);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* Glass theme form inputs */
+[data-style="glass"] .form-input,
+[data-style="glass"] .form-select {
+  background: rgba(255,255,255,.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,.3);
+  color: var(--text-primary);
+}
+
+[data-style="glass"] .form-input:focus,
+[data-style="glass"] .form-select:focus {
+  background: rgba(255,255,255,.4);
+  border-color: rgba(102, 126, 234, 0.6);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+[data-style="glass"][data-theme="dark"] .form-input,
+[data-style="glass"][data-theme="dark"] .form-select {
+  background: rgba(255,255,255,.1);
+  border: 2px solid rgba(5,191,247,.2);
+  box-shadow: 0 0 8px rgba(5,191,247,.08);
+}
+
+[data-style="glass"][data-theme="dark"] .form-input:focus,
+[data-style="glass"][data-theme="dark"] .form-select:focus {
+  background: rgba(255,255,255,.15);
+  border-color: rgba(5,191,247, 0.4);
+  box-shadow: 0 0 0 3px rgba(5,191,247, 0.2), 0 0 12px rgba(5,191,247,.15);
 }
 
 .login-button {
@@ -148,5 +217,25 @@
 .help-link:hover {
   color: var(--text-primary);
   background: rgba(102, 126, 234, 0.1);
+}
+
+/* Glass theme help link */
+[data-style="glass"] .help-link {
+  text-shadow: 0 1px 1px rgba(0,0,0,.05);
+}
+
+[data-style="glass"] .help-link:hover {
+  background: rgba(102, 126, 234, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-style="glass"][data-theme="dark"] .help-link {
+  text-shadow: 0 1px 1px rgba(0,0,0,.2);
+}
+
+[data-style="glass"][data-theme="dark"] .help-link:hover {
+  background: rgba(5,191,247, 0.15);
+  box-shadow: 0 0 8px rgba(5,191,247,.1);
 }
 

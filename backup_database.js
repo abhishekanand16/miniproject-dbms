@@ -36,6 +36,17 @@ async function backupDatabase() {
     // On macOS, try socket connection first, then fallback to TCP
     let dumpCommand = `mysqldump -u${DB_CONFIG.user} -p${DB_CONFIG.password}`;
     
+    // Add flags for complete, exact database backup
+    dumpCommand += ` --single-transaction`;  // Consistent backup for InnoDB tables
+    dumpCommand += ` --routines`;            // Include stored procedures and functions
+    dumpCommand += ` --triggers`;            // Include triggers
+    dumpCommand += ` --events`;              // Include scheduled events
+    dumpCommand += ` --add-drop-database`;   // Include DROP DATABASE statement
+    dumpCommand += ` --add-drop-table`;      // Include DROP TABLE statements
+    dumpCommand += ` --lock-tables=false`;   // Don't lock tables (works with single-transaction)
+    dumpCommand += ` --quick`;               // Faster for large tables
+    dumpCommand += ` --extended-insert`;     // More efficient INSERT statements
+    
     // Try to use socket path on macOS
     const socketPath = '/tmp/mysql.sock';
     if (process.platform === 'darwin' && fs.existsSync(socketPath)) {
@@ -112,5 +123,6 @@ async function backupDatabase() {
 }
 
 backupDatabase();
+
 
 

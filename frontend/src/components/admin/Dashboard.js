@@ -19,7 +19,6 @@ const AdminDashboard = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
-  const [loading, setLoading] = useState(true);
   const [showEditAppointmentModal, setShowEditAppointmentModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [appointmentForm, setAppointmentForm] = useState({ date: '', startTime: '', endTime: '', status: '', doctorEmail: '', concerns: '', symptoms: '' });
@@ -91,8 +90,6 @@ const AdminDashboard = () => {
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         alert('Your session has expired or you lack permissions. Please log in as an admin.');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -266,7 +263,7 @@ const AdminDashboard = () => {
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
-            <h2>HMS</h2>
+            <h2>{user?.name || 'User'}</h2>
           </div>
           <p>Admin Portal</p>
         </div>
@@ -395,7 +392,9 @@ const AdminDashboard = () => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Details</th>
+                    <th>Phone</th>
+                    <th>Gender</th>
+                    <th>Specialization</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -414,12 +413,9 @@ const AdminDashboard = () => {
                           {u.role}
                         </span>
                       </td>
-                      <td>
-                        {u.specialization && `Specialization: ${u.specialization}`}
-                        {u.phone && `Phone: ${u.phone}`}
-                        {u.gender && `Gender: ${u.gender}`}
-                        {!u.specialization && !u.phone && !u.gender && '-'}
-                      </td>
+                      <td>{u.phone || '-'}</td>
+                      <td>{u.gender || '-'}</td>
+                      <td>{u.specialization || '-'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
