@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useStyle } from '../../context/StyleProvider';
 import { useAuth } from '../../context/AuthContext';
-import { useFinancialData } from '../../context/FinancialDataContext';
-import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut, Trash2 } from 'lucide-react';
+import { User as UserIcon, Palette, Upload, Settings as SettingsIcon, Moon, Sun, Monitor, LogOut } from 'lucide-react';
+import axios from 'axios';
 import './settings-standalone.css';
 
 const Settings = () => {
@@ -12,7 +12,6 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useStyle();
   const { user, setUser, logout } = useAuth();
-  const { currency, setCurrency, salaryAmount, setSalaryAmount, monthlyExpenseAmount, setMonthlyExpenseAmount, clearUserData } = useFinancialData();
 
   const [activeTab, setActiveTab] = useState('profile');
   const isGlass = style === 'glass';
@@ -25,34 +24,37 @@ const Settings = () => {
     try { setProfileSrc(localStorage.getItem(profileKey) || ''); } catch {}
   }, [profileKey]);
 
-  const [tempSalaryAmount, setTempSalaryAmount] = useState(() => String(salaryAmount || 0));
-  const [tempExpenseAmount, setTempExpenseAmount] = useState(() => String(monthlyExpenseAmount || 0));
+  const handleProfileUpdate = useCallback(async () => {
+    const trimmedName = (username || '').trim();
+    if (!trimmedName) {
+      alert('Username cannot be empty');
+      return;
+    }
 
-  const currencyOptions = [
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
-  ];
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
 
-  const handleProfileUpdate = useCallback(() => {
-    const next = { ...(user || {}), name: (username || '').trim() };
-    setUser(next);
-    try { localStorage.setItem('user', JSON.stringify(next)); } catch {}
-  }, [setUser, user, username]);
+      const response = await axios.put('http://localhost:3001/api/profile', 
+        { name: trimmedName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-  const handleFinancialUpdate = useCallback(() => {
-    const salary = parseFloat(tempSalaryAmount) || 0;
-    const expense = parseFloat(tempExpenseAmount) || 0;
-    setSalaryAmount(salary);
-    setMonthlyExpenseAmount(expense);
-  }, [tempSalaryAmount, tempExpenseAmount, setSalaryAmount, setMonthlyExpenseAmount]);
+      // Update local state with the response
+      const updatedUser = response.data.user;
+      setUser(updatedUser);
+      try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch {}
+      
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
+      alert(`Error: ${errorMessage}`);
+    }
+  }, [setUser, username]);
 
   const handleProfilePictureUpload = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -67,27 +69,6 @@ const Settings = () => {
     }
   }, [profileKey]);
 
-  const handleClearData = useCallback(() => {
-    const ok = window.confirm('This action cannot be undone. Clear demo settings and profile?');
-    if (!ok) return;
-    try {
-      localStorage.removeItem('financial_data');
-      localStorage.removeItem('ui_style');
-      localStorage.removeItem('themePreference');
-      localStorage.removeItem('username');
-      localStorage.removeItem(profileKey);
-    } catch {}
-    setUser({ ...(user || {}), name: '' });
-    setUsername('');
-    setCurrency('INR');
-    setSalaryAmount(0);
-    setMonthlyExpenseAmount(0);
-    setTempSalaryAmount('0');
-    setTempExpenseAmount('0');
-    setProfileSrc('');
-    if (clearUserData) clearUserData();
-    window.location.reload();
-  }, [profileKey, setCurrency, setMonthlyExpenseAmount, setSalaryAmount, setUser, user, clearUserData]);
 
   const handleLogout = useCallback(() => {
     const ok = window.confirm('Logout and clear demo profile picture?');
@@ -102,7 +83,7 @@ const Settings = () => {
       <div className={isGlass ? 'settings-container glass-card' : 'settings-container'} style={{ margin: '0', padding: '24px' }}>
         <div className="settings-title" style={{ marginBottom: '24px' }}>
           <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Settings</h1>
-          <p style={{ fontSize: '14px' }}>Manage your profile, financial preferences, and app appearance.</p>
+          <p style={{ fontSize: '14px' }}>Manage your profile and app appearance.</p>
         </div>
 
         <div className="tabs-list" style={{ marginBottom: '24px' }}>
@@ -165,14 +146,10 @@ const Settings = () => {
                   <SettingsIcon className="icon" />
                   Account Actions
                 </div>
-                <div className="card-desc">Clear your data or logout from your account.</div>
+                <div className="card-desc">Logout from your account.</div>
               </div>
               <div className="card-content">
                 <div className="row wrap">
-                  <button className="btn btn-destructive" onClick={handleClearData}>
-                    <Trash2 className="icon" />
-                    Clear Data
-                  </button>
                   <button className="btn btn-outline red" onClick={handleLogout}>
                     <LogOut className="icon" />
                     Logout
@@ -182,8 +159,6 @@ const Settings = () => {
             </div>
           </div>
         )}
-
-        
 
         {activeTab === 'ui' && (
           <div className="card">

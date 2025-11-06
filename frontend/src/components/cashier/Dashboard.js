@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { DollarSign, Clock, CheckCircle, XCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
-import SettingsPage from '../settings/Settings';
+import { DollarSign, Clock, CheckCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
+import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
 const CashierDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [bills, setBills] = useState([]);
+  
+  // Sync activeTab with URL
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -19,17 +24,20 @@ const CashierDashboard = () => {
     amount: ''
   });
 
+  // Sync activeTab with URL changes
   useEffect(() => {
-    fetchBills();
-  }, [filter]);
+    const path = location.pathname;
+    if (path === '/cashier/settings') {
+      setActiveTab('settings');
+    } else if (path === '/cashier/dashboard') {
+      setActiveTab('dashboard');
+    } else if (path === '/cashier') {
+      // Redirect to dashboard if just /cashier
+      navigate('/cashier/dashboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
-  useEffect(() => {
-    function onOpenSettings() { setActiveTab('settings'); }
-    window.addEventListener('app:open-settings', onOpenSettings);
-    return () => window.removeEventListener('app:open-settings', onOpenSettings);
-  }, []);
-
-  const fetchBills = async () => {
+  const fetchBills = useCallback(async () => {
     try {
       const params = filter !== 'all' ? { status: filter } : {};
       const response = await axios.get('http://localhost:3001/api/cashier/billing', { params });
@@ -39,12 +47,29 @@ const CashierDashboard = () => {
     } finally {
       setLoading(false);
     }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchBills();
+  }, [fetchBills]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const routeMap = {
+      'dashboard': '/cashier/dashboard',
+      'settings': '/cashier/settings'
+    };
+    const route = routeMap[tab];
+    if (route) {
+      navigate(route, { replace: true });
+    }
   };
 
   const handleCreateBill = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3001/api/cashier/billing', billForm);
+      const response = await axios.post('http://localhost:3001/api/cashier/billing', billForm);
+      alert(response.data.message || 'Billing record created successfully!');
       setShowCreateModal(false);
       setBillForm({ appointmentId: '', patientEmail: '', amount: '' });
       fetchBills();
@@ -55,10 +80,11 @@ const CashierDashboard = () => {
 
   const handlePaymentUpdate = async (billId, status, method) => {
     try {
-      await axios.put(`http://localhost:3001/api/cashier/billing/${billId}/payment`, {
+      const response = await axios.put(`http://localhost:3001/api/cashier/billing/${billId}/payment`, {
         paymentStatus: status,
         paymentMethod: method
       });
+      alert(response.data.message || 'Payment status updated successfully!');
       fetchBills();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to update payment');
@@ -81,7 +107,10 @@ const CashierDashboard = () => {
     <div className="dashboard-container">
       <div className="sidebar">
         <div className="sidebar-header">
-          <h2>🏥 HMS</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
+            <h2>{user?.name || 'User'}</h2>
+          </div>
           <p>Cashier Portal</p>
         </div>
         <div className="sidebar-user">
@@ -91,14 +120,14 @@ const CashierDashboard = () => {
         <div className="sidebar-menu">
           <div 
             className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
           >
             <Activity size={20} />
             <span>Dashboard</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             <Settings size={20} />
             <span>Settings</span>
@@ -112,14 +141,13 @@ const CashierDashboard = () => {
 
       <div className="dashboard-content">
         <div className="content-wrapper">
-        {activeTab === 'dashboard' && (
+        {activeTab === 'settings' ? (
+          <SettingsComponent />
+        ) : activeTab === 'dashboard' && (
         <>
         <div className="dashboard-header">
           <h1>Welcome, {user?.name}!</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
-              <Settings size={18} />
-            </button>
             <button className="primary-button" onClick={() => setShowCreateModal(true)}>
               <DollarSign size={20} />
               Create Bill
@@ -227,7 +255,6 @@ const CashierDashboard = () => {
         </div>
         </>
         )}
-        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 

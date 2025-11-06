@@ -1,35 +1,74 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { Users, Calendar, DollarSign, Activity, LogOut, UserPlus, Settings, Trash2, Edit } from 'lucide-react';
-import SettingsPage from '../settings/Settings';
+import { Users, Calendar, DollarSign, Activity, LogOut, UserPlus, Trash2, Edit, Settings } from 'lucide-react';
+import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({});
-  const [activeTab, setActiveTab] = useState('overview');
+  
   const [users, setUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [bills, setBills] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient' });
-  const [loading, setLoading] = useState(true);
+  const [userForm, setUserForm] = useState({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
+  const [showEditAppointmentModal, setShowEditAppointmentModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [appointmentForm, setAppointmentForm] = useState({ date: '', startTime: '', endTime: '', status: '', doctorEmail: '', concerns: '', symptoms: '' });
+  const [doctors, setDoctors] = useState([]);
+
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Sync activeTab with URL changes
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/admin/settings') {
+      setActiveTab('settings');
+    } else if (path === '/admin/overview') {
+      setActiveTab('overview');
+    } else if (path === '/admin/users') {
+      setActiveTab('users');
+    } else if (path === '/admin/appointments') {
+      setActiveTab('appointments');
+    } else if (path === '/admin/billing') {
+      setActiveTab('billing');
+    } else if (path === '/admin') {
+      // Redirect to overview if just /admin
+      navigate('/admin/overview', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     fetchStats();
     if (activeTab === 'users') fetchUsers();
-    if (activeTab === 'appointments') fetchAppointments();
+    if (activeTab === 'appointments') {
+      fetchAppointments();
+      fetchDoctors();
+    }
     if (activeTab === 'billing') fetchBills();
   }, [activeTab]);
 
-  useEffect(() => {
-    function onOpenSettings() { setActiveTab('settings'); }
-    window.addEventListener('app:open-settings', onOpenSettings);
-    return () => window.removeEventListener('app:open-settings', onOpenSettings);
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const routeMap = {
+      'overview': '/admin/overview',
+      'users': '/admin/users',
+      'appointments': '/admin/appointments',
+      'billing': '/admin/billing',
+      'settings': '/admin/settings'
+    };
+    const route = routeMap[tab];
+    if (route) {
+      navigate(route, { replace: true });
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -51,8 +90,6 @@ const AdminDashboard = () => {
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         alert('Your session has expired or you lack permissions. Please log in as an admin.');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -92,20 +129,86 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchDoctors = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/api/doctors');
+      setDoctors(response.data);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
+
+  const handleEditAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setAppointmentForm({
+      date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '',
+      startTime: appointment.starttime || '',
+      endTime: appointment.endtime || '',
+      status: appointment.status || '',
+      doctorEmail: appointment.doctor_email || '',
+      concerns: appointment.concerns || '',
+      symptoms: appointment.symptoms || ''
+    });
+    setShowEditAppointmentModal(true);
+  };
+
+  const handleUpdateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:3001/api/admin/appointments/${selectedAppointment.id}`,
+        appointmentForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert(response.data.message || 'Appointment updated successfully!');
+      setShowEditAppointmentModal(false);
+      setSelectedAppointment(null);
+      fetchAppointments();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update appointment');
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`http://localhost:3001/api/admin/appointments/${appointmentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert(response.data.message || 'Appointment deleted successfully!');
+      fetchAppointments();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete appointment');
+    }
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
       const endpoint = `/api/auth/register/${userForm.role}`;
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:3001${endpoint}`, userForm, {
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+      console.log('Creating user:', { endpoint, userForm });
+      const response = await axios.post(`http://localhost:3001${endpoint}`, userForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      alert(response.data.message || 'User created successfully!');
       setShowUserModal(false);
-      setUserForm({ email: '', password: '', name: '', role: 'patient' });
+      setUserForm({ email: '', password: '', name: '', role: 'patient', address: '', gender: '', phone: '', specialization: '', dateOfBirth: '' });
       fetchUsers();
       fetchStats();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to create user');
+      console.error('User creation error:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create user';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -125,11 +228,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.put(
+      const response = await axios.put(
         `http://localhost:3001/api/admin/users/${selectedUser.role}/${selectedUser.email}`,
         userForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      alert(response.data.message || 'User updated successfully!');
       setShowEditModal(false);
       setSelectedUser(null);
       fetchUsers();
@@ -142,9 +246,10 @@ const AdminDashboard = () => {
     if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`, {
+      const response = await axios.delete(`http://localhost:3001/api/admin/users/${role}/${userEmail}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      alert(response.data.message || 'User deleted successfully!');
       fetchUsers();
       fetchStats();
     } catch (error) {
@@ -156,7 +261,10 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       <div className="sidebar glass-surface">
         <div className="sidebar-header">
-          <h2>🏥 HMS</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
+            <h2>{user?.name || 'User'}</h2>
+          </div>
           <p>Admin Portal</p>
         </div>
         <div className="sidebar-user">
@@ -166,35 +274,35 @@ const AdminDashboard = () => {
         <div className="sidebar-menu">
           <div 
             className={`menu-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('overview')}
           >
             <Activity size={20} />
             <span>Overview</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            onClick={() => handleTabChange('users')}
           >
             <Users size={20} />
             <span>Users</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'appointments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('appointments')}
+            onClick={() => handleTabChange('appointments')}
           >
             <Calendar size={20} />
             <span>Appointments</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'billing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('billing')}
+            onClick={() => handleTabChange('billing')}
           >
             <DollarSign size={20} />
             <span>Billing</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             <Settings size={20} />
             <span>Settings</span>
@@ -208,12 +316,13 @@ const AdminDashboard = () => {
 
       <div className="dashboard-content">
         <div className="content-wrapper">
+        {activeTab === 'settings' ? (
+          <SettingsComponent />
+        ) : (
+          <>
         <div className="dashboard-header">
           <h1>Admin Dashboard</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
-              <Settings size={18} />
-            </button>
             {activeTab === 'users' && (
               <button className="primary-button" onClick={() => setShowUserModal(true)}>
                 <UserPlus size={20} />
@@ -283,7 +392,9 @@ const AdminDashboard = () => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Details</th>
+                    <th>Phone</th>
+                    <th>Gender</th>
+                    <th>Specialization</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -302,12 +413,9 @@ const AdminDashboard = () => {
                           {u.role}
                         </span>
                       </td>
-                      <td>
-                        {u.specialization && `Specialization: ${u.specialization}`}
-                        {u.phone && `Phone: ${u.phone}`}
-                        {u.gender && `Gender: ${u.gender}`}
-                        {!u.specialization && !u.phone && !u.gender && '-'}
-                      </td>
+                      <td>{u.phone || '-'}</td>
+                      <td>{u.gender || '-'}</td>
+                      <td>{u.specialization || '-'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
@@ -346,6 +454,7 @@ const AdminDashboard = () => {
                     <th>Patient</th>
                     <th>Doctor</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,6 +470,24 @@ const AdminDashboard = () => {
                         }}>
                           {apt.status}
                         </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            className="primary-button"
+                            onClick={() => handleEditAppointment(apt)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="secondary-button"
+                            onClick={() => handleDeleteAppointment(apt.id)}
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -405,8 +532,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
-        {activeTab === 'settings' && (
-          <SettingsPage />
+          </>
         )}
         </div>
       </div>
@@ -522,6 +648,15 @@ const AdminDashboard = () => {
                       type="text"
                       value={userForm.phone || ''}
                       onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Date of Birth</label>
+                    <input
+                      type="date"
+                      value={userForm.dateOfBirth || ''}
+                      onChange={(e) => setUserForm({ ...userForm, dateOfBirth: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -648,6 +783,98 @@ const AdminDashboard = () => {
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">Update User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditAppointmentModal && selectedAppointment && (
+        <div className="modal-overlay" onClick={() => setShowEditAppointmentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Appointment</h2>
+            <form onSubmit={handleUpdateAppointment}>
+              <div className="form-group">
+                <label>Date *</label>
+                <input
+                  type="date"
+                  value={appointmentForm.date}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Time *</label>
+                  <input
+                    type="time"
+                    value={appointmentForm.startTime}
+                    onChange={(e) => setAppointmentForm({ ...appointmentForm, startTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Time *</label>
+                  <input
+                    type="time"
+                    value={appointmentForm.endTime}
+                    onChange={(e) => setAppointmentForm({ ...appointmentForm, endTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  value={appointmentForm.status}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, status: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="NotDone">NotDone</option>
+                  <option value="Done">Done</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Doctor</label>
+                <select
+                  value={appointmentForm.doctorEmail}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, doctorEmail: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">Select Doctor</option>
+                  {doctors.map(doc => (
+                    <option key={doc.email} value={doc.email}>
+                      {doc.name} - {doc.specialization}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Concerns</label>
+                <textarea
+                  value={appointmentForm.concerns}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, concerns: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="form-group">
+                <label>Symptoms</label>
+                <textarea
+                  value={appointmentForm.symptoms}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, symptoms: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setShowEditAppointmentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-button">Update Appointment</button>
               </div>
             </form>
           </div>

@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { Calendar, Clock, User, FileText, Plus, LogOut, Activity, Settings } from 'lucide-react';
-import SettingsPage from '../settings/Settings';
+import { Calendar, Clock, User, FileText, Plus, LogOut, Activity, Settings, Edit, Trash2 } from 'lucide-react';
+import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
+  
+  // Sync activeTab with URL
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [doctors, setDoctors] = useState([]);
@@ -21,17 +26,46 @@ const PatientDashboard = () => {
     concerns: '',
     symptoms: ''
   });
+  const [showEditAppointmentModal, setShowEditAppointmentModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [editAppointmentForm, setEditAppointmentForm] = useState({
+    doctorEmail: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    concerns: '',
+    symptoms: ''
+  });
+
+  // Sync activeTab with URL changes
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/patient/settings') {
+      setActiveTab('settings');
+    } else if (path === '/patient/dashboard') {
+      setActiveTab('dashboard');
+    } else if (path === '/patient') {
+      // Redirect to dashboard if just /patient
+      navigate('/patient/dashboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
   }, []);
 
-  useEffect(() => {
-    function onOpenSettings() { setActiveTab('settings'); }
-    window.addEventListener('app:open-settings', onOpenSettings);
-    return () => window.removeEventListener('app:open-settings', onOpenSettings);
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const routeMap = {
+      'dashboard': '/patient/dashboard',
+      'settings': '/patient/settings'
+    };
+    const route = routeMap[tab];
+    if (route) {
+      navigate(route, { replace: true });
+    }
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -56,7 +90,8 @@ const PatientDashboard = () => {
   const handleScheduleAppointment = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3001/api/patient/appointments', scheduleForm);
+      const response = await axios.post('http://localhost:3001/api/patient/appointments', scheduleForm);
+      alert(response.data.message || 'Appointment scheduled successfully!');
       setShowScheduleModal(false);
       setScheduleForm({
         doctorEmail: '',
@@ -72,6 +107,54 @@ const PatientDashboard = () => {
     }
   };
 
+  const handleEditAppointment = (appointment) => {
+    if (appointment.status === 'Done') {
+      alert('Cannot edit completed appointments');
+      return;
+    }
+    setSelectedAppointment(appointment);
+    setEditAppointmentForm({
+      doctorEmail: appointment.doctor_email || '',
+      date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '',
+      startTime: appointment.starttime || '',
+      endTime: appointment.endtime || '',
+      concerns: appointment.concerns || '',
+      symptoms: appointment.symptoms || ''
+    });
+    setShowEditAppointmentModal(true);
+  };
+
+  const handleUpdateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.put(
+        `http://localhost:3001/api/patient/appointments/${selectedAppointment.id}`,
+        editAppointmentForm
+      );
+      alert(response.data.message || 'Appointment updated successfully!');
+      setShowEditAppointmentModal(false);
+      setSelectedAppointment(null);
+      fetchAppointments();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update appointment');
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId, status) => {
+    if (status === 'Done') {
+      alert('Cannot delete completed appointments');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      const response = await axios.delete(`http://localhost:3001/api/patient/appointments/${appointmentId}`);
+      alert(response.data.message || 'Appointment deleted successfully!');
+      fetchAppointments();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete appointment');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Done': return '#10b981';
@@ -84,7 +167,10 @@ const PatientDashboard = () => {
     <div className="dashboard-container">
       <div className="sidebar">
         <div className="sidebar-header">
-          <h2>🏥 HMS</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/hospital-logo.svg" alt="Hospital Logo" style={{ width: '28px', height: '28px' }} />
+            <h2>{user?.name || 'User'}</h2>
+          </div>
           <p>Patient Portal</p>
         </div>
         <div className="sidebar-user">
@@ -94,14 +180,14 @@ const PatientDashboard = () => {
         <div className="sidebar-menu">
           <div 
             className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
           >
             <Activity size={20} />
             <span>Dashboard</span>
           </div>
           <div 
             className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
           >
             <Settings size={20} />
             <span>Settings</span>
@@ -115,14 +201,13 @@ const PatientDashboard = () => {
 
       <div className="dashboard-content">
         <div className="content-wrapper">
-        {activeTab === 'dashboard' && (
+        {activeTab === 'settings' ? (
+          <SettingsComponent />
+        ) : activeTab === 'dashboard' && (
         <>
         <div className="dashboard-header">
           <h1>Welcome, {user?.name}!</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="secondary-button" onClick={() => setActiveTab('settings')} title="Open Settings">
-              <Settings size={18} />
-            </button>
             <button className="primary-button" onClick={() => setShowScheduleModal(true)}>
               <Plus size={20} />
               Schedule Appointment
@@ -177,6 +262,7 @@ const PatientDashboard = () => {
                     <th>Specialization</th>
                     <th>Concerns</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -192,6 +278,29 @@ const PatientDashboard = () => {
                           {apt.status}
                         </span>
                       </td>
+                      <td>
+                        {apt.status === 'NotDone' && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              className="primary-button"
+                              onClick={() => handleEditAppointment(apt)}
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              className="secondary-button"
+                              onClick={() => handleDeleteAppointment(apt.id, apt.status)}
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {apt.status === 'Done' && (
+                          <span style={{ color: '#10b981', fontSize: '12px' }}>Completed</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -201,7 +310,6 @@ const PatientDashboard = () => {
         </div>
         </>
         )}
-        {activeTab === 'settings' && (<SettingsPage />)}
         </div>
       </div>
 
@@ -282,6 +390,89 @@ const PatientDashboard = () => {
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">Schedule</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditAppointmentModal && selectedAppointment && (
+        <div className="modal-overlay" onClick={() => setShowEditAppointmentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Appointment</h2>
+            <form onSubmit={handleUpdateAppointment}>
+              <div className="form-group">
+                <label>Doctor</label>
+                <select
+                  value={editAppointmentForm.doctorEmail}
+                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, doctorEmail: e.target.value })}
+                  className="form-input"
+                  required
+                >
+                  <option value="">Select Doctor</option>
+                  {doctors.map(doc => (
+                    <option key={doc.email} value={doc.email}>
+                      {doc.name} - {doc.specialization}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={editAppointmentForm.date}
+                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, date: e.target.value })}
+                  className="form-input"
+                  required
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input
+                    type="time"
+                    value={editAppointmentForm.startTime}
+                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, startTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input
+                    type="time"
+                    value={editAppointmentForm.endTime}
+                    onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, endTime: e.target.value })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Concerns</label>
+                <textarea
+                  value={editAppointmentForm.concerns}
+                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, concerns: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="form-group">
+                <label>Symptoms</label>
+                <textarea
+                  value={editAppointmentForm.symptoms}
+                  onChange={(e) => setEditAppointmentForm({ ...editAppointmentForm, symptoms: e.target.value })}
+                  className="form-input"
+                  rows="3"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setShowEditAppointmentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-button">Update Appointment</button>
               </div>
             </form>
           </div>

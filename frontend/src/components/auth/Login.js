@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { HelpCircle } from 'lucide-react';
 import './Login.css';
 
+// Helper function to get role-based URL prefix (matches App.js)
+function getRolePrefix(role) {
+  const roleMap = {
+    'admin': 'admin',
+    'doctor': 'doc',
+    'cashier': 'cashier',
+    'patient': 'patient'
+  };
+  return roleMap[role] || '';
+}
+
+// Helper function to get dashboard URL for a role
+function getDashboardUrl(role) {
+  const prefix = getRolePrefix(role);
+  return prefix ? `/${prefix}` : '/login';
+}
+
 const Login = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +35,14 @@ const Login = () => {
     setLoading(true);
 
     const result = await login(email, password);
-    if (!result.success) {
+    if (result.success) {
+      // Get the user from localStorage to determine the role
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        navigate(getDashboardUrl(user.role), { replace: true });
+      }
+    } else {
       setError(result.error);
     }
     setLoading(false);
@@ -27,7 +52,8 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>🏥 Hospital Management System</h1>
+          <img src="/hospital-logo.svg" alt="Hospital Logo" className="login-logo" />
+          <h1>Hospital Management System</h1>
           <p>Sign in to your account</p>
         </div>
         

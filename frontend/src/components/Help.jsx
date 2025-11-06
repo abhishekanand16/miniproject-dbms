@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, UserPlus, LogIn, Shield, AlertCircle, HelpCircle, Mail, Lock, Key, Bug, RefreshCw, Globe, Smartphone, Monitor } from 'lucide-react';
+import { ArrowLeft, UserPlus, LogIn, Shield, AlertCircle, HelpCircle, Mail, Lock, Key, Bug, Globe, Monitor } from 'lucide-react';
 import './Help.css';
 
 const Help = () => {
@@ -334,5 +334,7 @@ const Help = () => {
 };
 
 export default Help;
+
+
 
 

@@ -1,6 +1,13 @@
 -- Hospital Management System Database Schema
--- Drop existing tables if they exist (in reverse order of dependencies)
+-- This script creates the hms_data database and all required tables
 
+-- Create database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS hms_data;
+
+-- Use the hms_data database
+USE hms_data;
+
+-- Drop existing tables if they exist (in reverse order of dependencies)
 DROP TABLE IF EXISTS Diagnose;
 DROP TABLE IF EXISTS PatientsAttendAppointments;
 DROP TABLE IF EXISTS DoctorViewsHistory;

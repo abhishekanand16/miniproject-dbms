@@ -1,199 +1,3 @@
-
-const express = require('express');
-const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-require('dotenv').config();
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-app.use(cors());
-app.use(express.json());
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'HMS',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
-
-const authenticateToken = (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Access token required' });
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    req.user = user;
-    next();
-  });
-};
-
-const checkRole = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    return res.status(403).json({ error: 'Insufficient permissions' });
-  }
-  next();
-};
-
-const query = async (sql, params) => {
-  try {
-    const [results] = await pool.execute(sql, params);
-    return results;
-  } catch (error) {
-    console.error('Database error:', error);
-    throw error;
-  }
-};
-
-const safeCount = async (table, whereClause = '', params = []) => {
-  try {
-    const rows = await query(`SELECT COUNT(*) as count FROM ${table} ${whereClause}`, params);
-    return rows?.[0]?.count ?? 0;
-  } catch (e) {
-    console.warn(`[stats] count failed for table ${table}:`, e.code || e.message);
-    return 0;
-  }
-};
-
-const safeSum = async (table, column, whereClause = '', params = []) => {
-  try {
-    const rows = await query(`SELECT SUM(${column}) as total FROM ${table} ${whereClause}`, params);
-    return rows?.[0]?.total ?? 0;
-  } catch (e) {
-    console.warn(`[stats] sum failed for ${table}.${column}:`, e.code || e.message);
-    return 0;
-  }
-};
-
-// ==================== AUTH ROUTES ====================
-app.post('/api/auth/register/patient', async (req, res) => {
-  try {
-    const { email, password, name, address, gender, phone, dateOfBirth } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: 'Email, password, and name are required' });
-
-    const existing = await query('SELECT email FROM Patient WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(400).json({ error: 'Patient already exists' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await query('INSERT INTO Patient (email, password, name, address, gender, phone, date_of_birth) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, hashedPassword, name, address || null, gender || null, phone || null, dateOfBirth || null]);
-
-    const [historyResult] = await query('INSERT INTO MedicalHistory (date, conditions, surgeries, medication, allergies) VALUES (?, ?, ?, ?, ?)',
-      [new Date(), null, null, null, null]);
-    await query('INSERT INTO PatientsFillHistory (patient, history) VALUES (?, ?)', [email, historyResult.insertId]);
-
-    res.status(201).json({ message: 'Patient registered successfully' });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
-
-app.post('/api/auth/register/doctor', authenticateToken, checkRole('admin'), async (req, res) => {
-  try {
-    const { email, password, name, gender, specialization, phone } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: 'Email, password, and name are required' });
-
-    const existing = await query('SELECT email FROM Doctor WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(400).json({ error: 'Doctor already exists' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await query('INSERT INTO Doctor (email, password, name, gender, specialization, phone) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, hashedPassword, name, gender || null, specialization || null, phone || null]);
-
-    res.status(201).json({ message: 'Doctor registered successfully' });
-  } catch (error) {
-    console.error('Doctor registration error:', error);
-    res.status(500).json({ error: 'Doctor registration failed' });
-  }
-});
-
-app.post('/api/auth/register/cashier', authenticateToken, checkRole('admin'), async (req, res) => {
-  try {
-    const { email, password, name, phone } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: 'Email, password, and name are required' });
-
-    const existing = await query('SELECT email FROM Cashier WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(400).json({ error: 'Cashier already exists' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await query('INSERT INTO Cashier (email, password, name, phone) VALUES (?, ?, ?, ?)', [email, hashedPassword, name, phone || null]);
-
-    res.status(201).json({ message: 'Cashier registered successfully' });
-  } catch (error) {
-    console.error('Cashier registration error:', error);
-    res.status(500).json({ error: 'Cashier registration failed' });
-  }
-});
-
-app.post('/api/auth/register/admin', authenticateToken, checkRole('admin'), async (req, res) => {
-  try {
-    const { email, password, name } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: 'Email, password, and name are required' });
-
-    const existing = await query('SELECT email FROM Admin WHERE email = ?', [email]);
-    if (existing.length > 0) return res.status(400).json({ error: 'Admin already exists' });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await query('INSERT INTO Admin (email, password, name) VALUES (?, ?, ?)', [email, hashedPassword, name]);
-
-    res.status(201).json({ message: 'Admin registered successfully' });
-  } catch (error) {
-    console.error('Admin registration error:', error);
-    res.status(500).json({ error: 'Admin registration failed' });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
-
-    if (email === 'admin' && password === 'admin') {
-      const token = jwt.sign({ email: 'admin', role: 'admin', name: 'Administrator' }, JWT_SECRET, { expiresIn: '24h' });
-      return res.json({ token, user: { email: 'admin', name: 'Administrator', role: 'admin' } });
-    }
-
-    let table = null, roleValue = null;
-    if (role) {
-      const map = { patient: 'Patient', doctor: 'Doctor', cashier: 'Cashier', admin: 'Admin' };
-      table = map[role];
-      roleValue = role;
-      if (!table) return res.status(400).json({ error: 'Invalid role' });
-    } else {
-      const candidates = [{ table: 'Admin', role: 'admin' }, { table: 'Doctor', role: 'doctor' }, { table: 'Cashier', role: 'cashier' }, { table: 'Patient', role: 'patient' }];
-      for (const c of candidates) {
-        const [rows] = await pool.execute(`SELECT email FROM ${c.table} WHERE email = ? LIMIT 1`, [email]);
-        if (rows.length > 0) { table = c.table; roleValue = c.role; break; }
-      }
-      if (!table) return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const [users] = await pool.execute(`SELECT email, password, name FROM ${table} WHERE email = ?`, [email]);
-    if (users.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-
-    const user = users[0];
-    let passwordMatch = false;
-    const isHashed = typeof user.password === 'string' && user.password.startsWith('$2b$');
-    if (isHashed) {
-      passwordMatch = await bcrypt.compare(password, user.password);
-    } else {
-      if (user.password === password) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.execute(`UPDATE ${table} SET password = ? WHERE email = ?`, [hashedPassword, email]);
-        passwordMatch = true;
-      }
-    }
-
-    if (!passwordMatch) return res.status(401).json({ error: 'Invalid credentials' });
-
-    const token = jwt.sign({ email: user.email, role: roleValue, name: user.name }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { email: user.email, name: user.name, role: roleValue } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -201,6 +5,80 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/me', authenticateToken, async (req, res) => res.json({ user: req.user }));
+
+// ==================== PROFILE UPDATE ROUTES ====================
+// Allow users to update their own profile
+app.put('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, address, gender, phone, specialization } = req.body;
+    const { email, role } = req.user;
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const tableMap = { admin: 'Admin', patient: 'Patient', doctor: 'Doctor', cashier: 'Cashier' };
+    const table = tableMap[role];
+    if (!table) return res.status(400).json({ error: 'Invalid role' });
+
+    const fields = ['name = ?'];
+    const params = [name.trim()];
+
+    // Add optional fields based on role
+    if (role === 'patient') {
+      if (address !== undefined) {
+        fields.push('address = ?');
+        params.push(address || null);
+      }
+      if (gender !== undefined) {
+        fields.push('gender = ?');
+        params.push(gender || null);
+      }
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    } else if (role === 'doctor') {
+      if (specialization !== undefined) {
+        fields.push('specialization = ?');
+        params.push(specialization || null);
+      }
+      if (gender !== undefined) {
+        fields.push('gender = ?');
+        params.push(gender || null);
+      }
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    } else if (role === 'cashier') {
+      if (phone !== undefined) {
+        fields.push('phone = ?');
+        params.push(phone || null);
+      }
+    }
+
+    params.push(email);
+    await query(`UPDATE ${table} SET ${fields.join(', ')} WHERE email = ?`, params);
+    
+    // Fetch updated user data
+    let selectFields = 'email, name';
+    if (role === 'patient') selectFields += ', address, gender, phone';
+    else if (role === 'doctor') selectFields += ', gender, specialization, phone';
+    else if (role === 'cashier') selectFields += ', phone';
+    
+    const updated = await query(`SELECT ${selectFields} FROM ${table} WHERE email = ?`, [email]);
+    const userData = updated[0];
+    
+    res.json({ 
+      message: 'Profile updated successfully', 
+      user: { ...userData, role } 
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
 
 // ==================== PATIENT ROUTES ====================
 app.get('/api/patient/appointments', authenticateToken, checkRole('patient'), async (req, res) => {
@@ -229,11 +107,14 @@ app.post('/api/patient/appointments', authenticateToken, checkRole('patient'), a
     const { doctorEmail, date, startTime, endTime, concerns, symptoms } = req.body;
     if (!doctorEmail || !date || !startTime || !endTime) return res.status(400).json({ error: 'Missing required fields' });
 
-    const [conflicts] = await query(`SELECT id FROM Appointment WHERE date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`, [date, startTime, startTime, endTime, endTime, startTime, endTime]);
+    const conflicts = await query(`SELECT id FROM Appointment WHERE date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`, [date, startTime, startTime, endTime, endTime, startTime, endTime]);
     if (conflicts.length > 0) return res.status(400).json({ error: 'Time slot already booked' });
 
-    const [apptResult] = await query(`INSERT INTO Appointment (date, starttime, endtime, status) VALUES (?, ?, ?, 'NotDone')`, [date, startTime, endTime]);
-    const appointmentId = apptResult.insertId;
+    const apptResult = await query(`INSERT INTO Appointment (date, starttime, endtime, status) VALUES (?, ?, ?, 'NotDone')`, [date, startTime, endTime]);
+    const appointmentId = getInsertId(apptResult);
+    if (!appointmentId) {
+      throw new Error('Failed to get appointment ID from insert');
+    }
 
     await query(`INSERT INTO PatientsAttendAppointments (patient, appt, concerns, symptoms) VALUES (?, ?, ?, ?)`, [req.user.email, appointmentId, concerns || '', symptoms || '']);
     await query(`INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, '', '')`, [appointmentId, doctorEmail]);
@@ -242,6 +123,134 @@ app.post('/api/patient/appointments', authenticateToken, checkRole('patient'), a
   } catch (error) {
     console.error('Error scheduling appointment:', error);
     res.status(500).json({ error: 'Failed to schedule appointment' });
+  }
+});
+
+app.put('/api/patient/appointments/:id', authenticateToken, checkRole('patient'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, startTime, endTime, doctorEmail, concerns, symptoms } = req.body;
+    
+    // Verify the appointment belongs to this patient
+    const patientAppointments = await query(
+      'SELECT appt FROM PatientsAttendAppointments WHERE appt = ? AND patient = ?',
+      [id, req.user.email]
+    );
+    if (patientAppointments.length === 0) {
+      return res.status(403).json({ error: 'You can only modify your own appointments' });
+    }
+
+    // Check if appointment is already done
+    const appointment = await query('SELECT status FROM Appointment WHERE id = ?', [id]);
+    if (appointment.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    if (appointment[0].status === 'Done') {
+      return res.status(400).json({ error: 'Cannot modify completed appointments' });
+    }
+
+    // Update appointment date/time if provided
+    if (date || startTime || endTime) {
+      const updates = [];
+      const params = [];
+      
+      if (date) {
+        updates.push('date = ?');
+        params.push(date);
+      }
+      if (startTime) {
+        updates.push('starttime = ?');
+        params.push(startTime);
+      }
+      if (endTime) {
+        updates.push('endtime = ?');
+        params.push(endTime);
+      }
+      
+      if (updates.length > 0) {
+        // Check for time conflicts
+        const currentAppt = await query('SELECT date, starttime, endtime FROM Appointment WHERE id = ?', [id]);
+        const checkDate = date || currentAppt[0].date;
+        const checkStartTime = startTime || currentAppt[0].starttime;
+        const checkEndTime = endTime || currentAppt[0].endtime;
+        
+        const conflicts = await query(
+          `SELECT id FROM Appointment WHERE id != ? AND date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`,
+          [id, checkDate, checkStartTime, checkStartTime, checkEndTime, checkEndTime, checkStartTime, checkEndTime]
+        );
+        if (conflicts.length > 0) {
+          return res.status(400).json({ error: 'Time slot already booked' });
+        }
+        
+        params.push(id);
+        await query(`UPDATE Appointment SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+    }
+
+    // Update doctor if provided
+    if (doctorEmail) {
+      const existing = await query('SELECT doctor FROM Diagnose WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        await query('UPDATE Diagnose SET doctor = ? WHERE appt = ?', [doctorEmail, id]);
+      } else {
+        await query('INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, ?, ?)', [id, doctorEmail, '', '']);
+      }
+    }
+
+    // Update concerns/symptoms if provided
+    if (concerns !== undefined || symptoms !== undefined) {
+      const updates = [];
+      const params = [];
+      if (concerns !== undefined) {
+        updates.push('concerns = ?');
+        params.push(concerns);
+      }
+      if (symptoms !== undefined) {
+        updates.push('symptoms = ?');
+        params.push(symptoms);
+      }
+      if (updates.length > 0) {
+        params.push(id);
+        await query(`UPDATE PatientsAttendAppointments SET ${updates.join(', ')} WHERE appt = ?`, params);
+      }
+    }
+
+    res.json({ message: 'Appointment updated successfully' });
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+app.delete('/api/patient/appointments/:id', authenticateToken, checkRole('patient'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify the appointment belongs to this patient
+    const patientAppointments = await query(
+      'SELECT appt FROM PatientsAttendAppointments WHERE appt = ? AND patient = ?',
+      [id, req.user.email]
+    );
+    if (patientAppointments.length === 0) {
+      return res.status(403).json({ error: 'You can only delete your own appointments' });
+    }
+
+    // Check if appointment is already done
+    const appointment = await query('SELECT status FROM Appointment WHERE id = ?', [id]);
+    if (appointment.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    if (appointment[0].status === 'Done') {
+      return res.status(400).json({ error: 'Cannot delete completed appointments' });
+    }
+
+    // Delete appointment (cascade will handle related records)
+    await query('DELETE FROM Appointment WHERE id = ?', [id]);
+    
+    res.json({ message: 'Appointment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    res.status(500).json({ error: 'Failed to delete appointment' });
   }
 });
 
@@ -313,8 +322,9 @@ app.post('/api/cashier/billing', authenticateToken, checkRole('cashier'), async 
   try {
     const { appointmentId, patientEmail, amount } = req.body;
     if (!patientEmail || !amount) return res.status(400).json({ error: 'Patient email and amount are required' });
-    const [result] = await query(`INSERT INTO Billing (appointment_id, patient_email, amount, payment_status) VALUES (?, ?, ?, 'Pending')`, [appointmentId || null, patientEmail, amount]);
-    res.status(201).json({ message: 'Billing record created', id: result.insertId });
+    const result = await query(`INSERT INTO Billing (appointment_id, patient_email, amount, payment_status) VALUES (?, ?, ?, 'Pending')`, [appointmentId || null, patientEmail, amount]);
+    const billingId = getInsertId(result);
+    res.status(201).json({ message: 'Billing record created', id: billingId });
   } catch (error) {
     console.error('Error creating billing:', error);
     res.status(500).json({ error: 'Failed to create billing record' });
@@ -357,6 +367,119 @@ app.get('/api/admin/appointments', authenticateToken, checkRole('admin'), async 
   } catch (error) {
     console.error('Error fetching appointments:', error);
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+app.put('/api/admin/appointments/:id', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, startTime, endTime, status, doctorEmail, concerns, symptoms } = req.body;
+    
+    // Check if appointment exists
+    const appointments = await query('SELECT id FROM Appointment WHERE id = ?', [id]);
+    if (appointments.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    // Update appointment if date/time provided
+    if (date || startTime || endTime || status) {
+      const updates = [];
+      const params = [];
+      
+      if (date) {
+        updates.push('date = ?');
+        params.push(date);
+      }
+      if (startTime) {
+        updates.push('starttime = ?');
+        params.push(startTime);
+      }
+      if (endTime) {
+        updates.push('endtime = ?');
+        params.push(endTime);
+      }
+      if (status) {
+        updates.push('status = ?');
+        params.push(status);
+      }
+      
+      if (updates.length > 0) {
+        // Check for time conflicts if date/time is being changed
+        if (date || startTime || endTime) {
+          const appointmentData = await query('SELECT date, starttime, endtime FROM Appointment WHERE id = ?', [id]);
+          const checkDate = date || appointmentData[0].date;
+          const checkStartTime = startTime || appointmentData[0].starttime;
+          const checkEndTime = endTime || appointmentData[0].endtime;
+          
+          const conflicts = await query(
+            `SELECT id FROM Appointment WHERE id != ? AND date = ? AND ((starttime <= ? AND endtime > ?) OR (starttime < ? AND endtime >= ?) OR (starttime >= ? AND endtime <= ?))`,
+            [id, checkDate, checkStartTime, checkStartTime, checkEndTime, checkEndTime, checkStartTime, checkEndTime]
+          );
+          if (conflicts.length > 0) {
+            return res.status(400).json({ error: 'Time slot already booked' });
+          }
+        }
+        
+        params.push(id);
+        await query(`UPDATE Appointment SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+    }
+
+    // Update doctor assignment if provided
+    if (doctorEmail !== undefined) {
+      const existing = await query('SELECT doctor FROM Diagnose WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        await query('UPDATE Diagnose SET doctor = ? WHERE appt = ?', [doctorEmail, id]);
+      } else {
+        await query('INSERT INTO Diagnose (appt, doctor, diagnosis, prescription) VALUES (?, ?, ?, ?)', [id, doctorEmail, '', '']);
+      }
+    }
+
+    // Update patient concerns/symptoms if provided
+    if (concerns !== undefined || symptoms !== undefined) {
+      const existing = await query('SELECT patient FROM PatientsAttendAppointments WHERE appt = ?', [id]);
+      if (existing.length > 0) {
+        const updates = [];
+        const params = [];
+        if (concerns !== undefined) {
+          updates.push('concerns = ?');
+          params.push(concerns);
+        }
+        if (symptoms !== undefined) {
+          updates.push('symptoms = ?');
+          params.push(symptoms);
+        }
+        if (updates.length > 0) {
+          params.push(id);
+          await query(`UPDATE PatientsAttendAppointments SET ${updates.join(', ')} WHERE appt = ?`, params);
+        }
+      }
+    }
+
+    res.json({ message: 'Appointment updated successfully' });
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+app.delete('/api/admin/appointments/:id', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if appointment exists
+    const appointments = await query('SELECT id FROM Appointment WHERE id = ?', [id]);
+    if (appointments.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    // Delete appointment (cascade will handle related records)
+    await query('DELETE FROM Appointment WHERE id = ?', [id]);
+    
+    res.json({ message: 'Appointment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    res.status(500).json({ error: 'Failed to delete appointment' });
   }
 });
 
@@ -424,7 +547,45 @@ app.put('/api/admin/users/:role/:email', authenticateToken, checkRole('admin'), 
   }
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'HMS API running' }));
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    await pool.execute('SELECT 1');
+    res.json({ status: 'OK', message: 'HMS API running', database: 'connected' });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'ERROR', 
+      message: 'HMS API running but database connection failed',
+      error: error.code || error.message 
+    });
+  }
+});
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Test database connection on startup
+async function testConnection() {
+  try {
+    await pool.execute('SELECT 1');
+    console.log('✓ Database connection successful');
+  } catch (error) {
+    console.error('✗ Database connection failed:', error.message);
+    console.error('Error code:', error.code);
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOENT') {
+      console.error('\n⚠️  Possible solutions:');
+      console.error('   1. Make sure MySQL server is running');
+      console.error('   2. Check socket path (trying:', process.env.DB_SOCKET_PATH || '/tmp/mysql.sock', ')');
+      console.error('   3. Try starting MySQL: brew services start mysql');
+    }
+  }
+}
+
+// Test connection and start server
+testConnection().then(() => {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Server running on port ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
+  });
+}).catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
 

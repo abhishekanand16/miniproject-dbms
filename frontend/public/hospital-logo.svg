@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Left building section -->
+  <rect x="20" y="60" width="40" height="140" fill="#b4a8c4" rx="2"/>
+  <!-- Windows on left section -->
+  <line x1="25" y1="75" x2="55" y2="75" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="25" y1="95" x2="55" y2="95" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="25" y1="115" x2="55" y2="115" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="25" y1="135" x2="55" y2="135" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Center building section (taller) -->
+  <rect x="70" y="40" width="60" height="160" fill="#b4a8c4" rx="2"/>
+  <!-- Windows on center section -->
+  <line x1="80" y1="65" x2="120" y2="65" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="80" y1="90" x2="120" y2="90" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="80" y1="115" x2="120" y2="115" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <!-- Red cross on center section -->
+  <rect x="88" y="48" width="24" height="24" fill="#dc2626" rx="1"/>
+  <rect x="96" y="56" width="8" height="24" fill="#b4a8c4"/>
+  <rect x="88" y="64" width="24" height="8" fill="#b4a8c4"/>
+  <!-- Entrance/door at base -->
+  <rect x="85" y="175" width="30" height="25" fill="#1a1a1a" rx="2"/>
+  
+  <!-- Right building section -->
+  <rect x="140" y="60" width="40" height="140" fill="#b4a8c4" rx="2"/>
+  <!-- Windows on right section -->
+  <line x1="145" y1="75" x2="175" y2="75" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="145" y1="95" x2="175" y2="95" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="145" y1="115" x2="175" y2="115" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <line x1="145" y1="135" x2="175" y2="135" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+</svg>
+
+
+
