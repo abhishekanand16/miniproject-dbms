@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -23,6 +23,7 @@ const AdminDashboard = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [appointmentForm, setAppointmentForm] = useState({ date: '', startTime: '', endTime: '', status: '', doctorEmail: '', concerns: '', symptoms: '' });
   const [doctors, setDoctors] = useState([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState(null);
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -45,16 +46,6 @@ const AdminDashboard = () => {
     }
   }, [location.pathname, navigate]);
 
-  useEffect(() => {
-    fetchStats();
-    if (activeTab === 'users') fetchUsers();
-    if (activeTab === 'appointments') {
-      fetchAppointments();
-      fetchDoctors();
-    }
-    if (activeTab === 'billing') fetchBills();
-  }, [activeTab]);
-
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     const routeMap = {
@@ -70,7 +61,20 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchStats = async () => {
+  const handleRoleFilter = (role) => {
+    setSelectedRoleFilter(role);
+    // Navigate to users tab if not already there
+    if (activeTab !== 'users') {
+      handleTabChange('users');
+    }
+  };
+
+  // Filter users based on selected role
+  const filteredUsers = selectedRoleFilter 
+    ? users.filter(user => user.role === selectedRoleFilter.toLowerCase())
+    : users;
+
+  const fetchStats = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined' || token === 'null') {
@@ -89,11 +93,13 @@ const AdminDashboard = () => {
       console.error('Error fetching stats:', status, msg);
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         alert('Your session has expired or you lack permissions. Please log in as an admin.');
+        logout();
+        navigate('/login');
       }
     }
-  };
+  }, [logout, navigate]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:3001/api/admin/users', {
@@ -103,9 +109,9 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
     }
-  };
+  }, []);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:3001/api/admin/appointments', {
@@ -115,9 +121,9 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching appointments:', error);
     }
-  };
+  }, []);
 
-  const fetchBills = async () => {
+  const fetchBills = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:3001/api/admin/billing', {
@@ -127,16 +133,26 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching bills:', error);
     }
-  };
+  }, []);
 
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:3001/api/doctors');
       setDoctors(response.data);
     } catch (error) {
       console.error('Error fetching doctors:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+    if (activeTab === 'users') fetchUsers();
+    if (activeTab === 'appointments') {
+      fetchAppointments();
+      fetchDoctors();
+    }
+    if (activeTab === 'billing') fetchBills();
+  }, [activeTab, fetchStats, fetchUsers, fetchAppointments, fetchDoctors, fetchBills]);
 
   const handleEditAppointment = (appointment) => {
     setSelectedAppointment(appointment);
@@ -279,12 +295,52 @@ const AdminDashboard = () => {
             <Activity size={20} />
             <span>Overview</span>
           </div>
-          <div 
-            className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => handleTabChange('users')}
-          >
-            <Users size={20} />
-            <span>Users</span>
+          <div className="menu-item-container">
+            <div 
+              className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => handleTabChange('users')}
+            >
+              <Users size={20} />
+              <span>Users</span>
+            </div>
+            <div className="user-types-submenu">
+              <div 
+                className={`submenu-item ${selectedRoleFilter === 'admin' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRoleFilter('admin');
+                }}
+              >
+                Admin
+              </div>
+              <div 
+                className={`submenu-item ${selectedRoleFilter === 'patient' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRoleFilter('patient');
+                }}
+              >
+                Patient
+              </div>
+              <div 
+                className={`submenu-item ${selectedRoleFilter === 'doctor' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRoleFilter('doctor');
+                }}
+              >
+                Doctor
+              </div>
+              <div 
+                className={`submenu-item ${selectedRoleFilter === 'cashier' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRoleFilter('cashier');
+                }}
+              >
+                Cashier
+              </div>
+            </div>
           </div>
           <div 
             className={`menu-item ${activeTab === 'appointments' ? 'active' : ''}`}
@@ -367,7 +423,7 @@ const AdminDashboard = () => {
                   <DollarSign size={24} />
                 </div>
                 <div className="stat-info">
-                  <h3>${(stats.totalRevenue || 0).toFixed(2)}</h3>
+                  <h3>${Number(stats.totalRevenue || 0).toFixed(2)}</h3>
                   <p>Total Revenue</p>
                 </div>
               </div>
@@ -384,7 +440,25 @@ const AdminDashboard = () => {
 
         {activeTab === 'users' && (
           <div className="content-card">
-            <h2>Manage Users</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2>
+                Manage Users
+                {selectedRoleFilter && (
+                  <span style={{ fontSize: '16px', fontWeight: 'normal', color: 'var(--text-secondary)', marginLeft: '10px' }}>
+                    ({selectedRoleFilter.charAt(0).toUpperCase() + selectedRoleFilter.slice(1)})
+                  </span>
+                )}
+              </h2>
+              {selectedRoleFilter && (
+                <button 
+                  className="secondary-button"
+                  onClick={() => setSelectedRoleFilter(null)}
+                  style={{ fontSize: '14px', padding: '8px 16px' }}
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
             <div className="table-container">
               <table className="data-table">
                 <thead>
@@ -399,7 +473,14 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, idx) => (
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                        No users found{selectedRoleFilter ? ` for role: ${selectedRoleFilter}` : ''}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u, idx) => (
                     <tr key={idx}>
                       <td>{u.name}</td>
                       <td>{u.email}</td>
@@ -435,7 +516,8 @@ const AdminDashboard = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
