@@ -1,3 +1,157 @@
+require('dotenv').config();
+const express = require('express');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Database connection pool
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || 'hms_data',
+  socketPath: process.env.DB_SOCKET_PATH || '/tmp/mysql.sock',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Helper function to execute queries
+async function query(sql, params = []) {
+  const [results] = await pool.execute(sql, params);
+  return results;
+}
+
+// Helper function to get insert ID
+function getInsertId(result) {
+  return result?.insertId || result?.[0]?.insertId;
+}
+
+// Helper functions for safe counting and summing
+async function safeCount(table, whereClause = '') {
+  try {
+    const [result] = await pool.execute(`SELECT COUNT(*) as count FROM ${table} ${whereClause}`);
+    return result[0]?.count || 0;
+  } catch (error) {
+    console.error(`Error counting ${table}:`, error);
+    return 0;
+  }
+}
+
+async function safeSum(table, column, whereClause = '') {
+  try {
+    const [result] = await pool.execute(`SELECT COALESCE(SUM(${column}), 0) as total FROM ${table} ${whereClause}`);
+    return result[0]?.total || 0;
+  } catch (error) {
+    console.error(`Error summing ${table}.${column}:`, error);
+    return 0;
+  }
+}
+
+// JWT authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Role-based access control middleware
+function checkRole(role) {
+  return (req, res, next) => {
+    if (req.user.role !== role) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+// ==================== AUTHENTICATION ROUTES ====================
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Try to find user in any table
+    let user = null;
+    let role = null;
+    let table = null;
+
+    // Check Admin table
+    const admins = await query('SELECT * FROM Admin WHERE email = ?', [email]);
+    if (admins.length > 0) {
+      user = admins[0];
+      role = 'admin';
+      table = 'Admin';
+    } else {
+      // Check Patient table
+      const patients = await query('SELECT * FROM Patient WHERE email = ?', [email]);
+      if (patients.length > 0) {
+        user = patients[0];
+        role = 'patient';
+        table = 'Patient';
+      } else {
+        // Check Doctor table
+        const doctors = await query('SELECT * FROM Doctor WHERE email = ?', [email]);
+        if (doctors.length > 0) {
+          user = doctors[0];
+          role = 'doctor';
+          table = 'Doctor';
+        } else {
+          // Check Cashier table
+          const cashiers = await query('SELECT * FROM Cashier WHERE email = ?', [email]);
+          if (cashiers.length > 0) {
+            user = cashiers[0];
+            role = 'cashier';
+            table = 'Cashier';
+          }
+        }
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { email: user.email, role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Prepare user data (exclude password)
+    const userData = { ...user };
+    delete userData.password;
+    userData.role = role;
+
+    res.json({ token, user: userData });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
