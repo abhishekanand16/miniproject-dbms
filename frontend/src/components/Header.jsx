@@ -2,14 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Sun, Moon, FileText, HelpCircle, LogOut, ExternalLink, Settings } from 'lucide-react';
+import { useStyle } from '../context/StyleProvider';
+import { User, Sun, Moon, FileText, HelpCircle, LogOut, ExternalLink, Settings, Sparkles, Square } from 'lucide-react';
 
 function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { style, setStyle } = useStyle();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
+
+  const toggleStyle = () => {
+    setStyle(style === 'glass' ? 'normal' : 'glass');
+  };
 
   useEffect(() => {
     function onDocClick(e) {
@@ -27,6 +33,14 @@ function Header() {
         <span className="app-title">HMS</span>
       </div>
       <div className="header-right">
+        <button
+          className="style-toggle"
+          onClick={toggleStyle}
+          aria-label="Toggle style"
+          title={style === 'glass' ? 'Switch to normal style' : 'Switch to glass style'}
+        >
+          {style === 'glass' ? <Sparkles size={18} /> : <Square size={18} />}
+        </button>
         <button
           className="theme-toggle"
           onClick={toggleTheme}

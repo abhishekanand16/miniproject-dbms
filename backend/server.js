@@ -160,6 +160,61 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', authenticateToken, async (req, res) => res.json({ user: req.user }));
 
+// Registration endpoint (admin only)
+app.post('/api/auth/register/:role', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { role } = req.params;
+    const { email, password, name, address, gender, phone, specialization, dateOfBirth } = req.body;
+
+    // Validate required fields
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    // Validate role
+    const validRoles = ['admin', 'patient', 'doctor', 'cashier'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Check if user already exists
+    const tableMap = { admin: 'Admin', patient: 'Patient', doctor: 'Doctor', cashier: 'Cashier' };
+    const table = tableMap[role];
+    const existingUser = await query(`SELECT email FROM ${table} WHERE email = ?`, [email]);
+    if (existingUser.length > 0) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user based on role
+    if (role === 'admin') {
+      await query(`INSERT INTO Admin (email, password, name) VALUES (?, ?, ?)`, [email, hashedPassword, name]);
+    } else if (role === 'patient') {
+      await query(
+        `INSERT INTO Patient (email, password, name, address, gender, phone, date_of_birth) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [email, hashedPassword, name, address || null, gender || null, phone || null, dateOfBirth || null]
+      );
+    } else if (role === 'doctor') {
+      await query(
+        `INSERT INTO Doctor (email, password, name, gender, specialization, phone) VALUES (?, ?, ?, ?, ?, ?)`,
+        [email, hashedPassword, name, gender || null, specialization || null, phone || null]
+      );
+    } else if (role === 'cashier') {
+      await query(
+        `INSERT INTO Cashier (email, password, name, phone) VALUES (?, ?, ?, ?)`,
+        [email, hashedPassword, name, phone || null]
+      );
+    }
+
+    res.status(201).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} created successfully` });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
 // ==================== PROFILE UPDATE ROUTES ====================
 // Allow users to update their own profile
 app.put('/api/profile', authenticateToken, async (req, res) => {

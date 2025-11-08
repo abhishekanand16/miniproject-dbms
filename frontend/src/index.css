@@ -187,6 +187,48 @@ code { font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', mon
 .header-logo { width: 36px; height: 36px; display: block; }
 .header-right { display: flex; align-items: center; gap: 12px; }
 
+.style-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background .2s, transform .08s;
+}
+.style-toggle:hover { background: rgba(127,86,217,.08); }
+[data-theme='dark'] .style-toggle:hover { 
+  background: rgba(5,191,247,.18);
+  box-shadow: 0 0 8px rgba(5,191,247,.1);
+}
+.style-toggle:active { transform: scale(.98); }
+
+/* Glass theme style toggle button */
+[data-style="glass"] .style-toggle {
+  background: rgba(255,255,255,.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.3);
+}
+[data-style="glass"] .style-toggle:hover {
+  background: rgba(127,86,217,.2);
+  border-color: rgba(127,86,217,.4);
+}
+[data-style="glass"][data-theme="dark"] .style-toggle {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(5,191,247,.2);
+  box-shadow: 0 0 8px rgba(5,191,247,.1);
+}
+[data-style="glass"][data-theme="dark"] .style-toggle:hover {
+  background: rgba(5,191,247,.15);
+  border-color: rgba(5,191,247,.3);
+  box-shadow: 0 0 12px rgba(5,191,247,.2);
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;
