@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { DollarSign, Clock, CheckCircle, LogOut, Activity, Receipt, Settings } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, LogOut, Activity, Receipt, Settings, Trash2 } from 'lucide-react';
 import SettingsComponent from '../settings/Settings';
 import '../Dashboard.css';
 
@@ -88,6 +88,17 @@ const CashierDashboard = () => {
       fetchBills();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to update payment');
+    }
+  };
+
+  const handleDeleteBill = async (billId) => {
+    if (!window.confirm('Are you sure you want to delete this bill? This cannot be undone.')) return;
+    try {
+      const response = await axios.delete(`http://localhost:3001/api/cashier/billing/${billId}`);
+      alert(response.data.message || 'Bill deleted successfully!');
+      fetchBills();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete bill');
     }
   };
 
@@ -239,6 +250,14 @@ const CashierDashboard = () => {
                               style={{ padding: '6px 12px', fontSize: '12px' }}
                             >
                               Mark Paid
+                            </button>
+                            <button
+                              className="secondary-button"
+                              onClick={() => handleDeleteBill(bill.id)}
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              title="Delete bill"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         )}

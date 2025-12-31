@@ -135,6 +135,21 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const handleDeleteBill = async (billId) => {
+    if (!window.confirm('Are you sure you want to delete this bill? This cannot be undone.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`http://localhost:3001/api/admin/billing/${billId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert(response.data.message || 'Bill deleted successfully!');
+      fetchBills();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete bill');
+    }
+  };
+
   const fetchDoctors = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:3001/api/doctors');
@@ -591,6 +606,7 @@ const AdminDashboard = () => {
                     <th>Status</th>
                     <th>Payment Method</th>
                     <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -607,6 +623,16 @@ const AdminDashboard = () => {
                       </td>
                       <td>{bill.payment_method || '-'}</td>
                       <td>{bill.payment_date ? new Date(bill.payment_date).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <button
+                          className="secondary-button"
+                          onClick={() => handleDeleteBill(bill.id)}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
+                          title="Delete bill"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

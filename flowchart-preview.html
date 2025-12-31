@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Management System - Flowchart Preview</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
+        
+        h2 {
+            color: #34495e;
+            font-size: 1.8em;
+            margin-top: 50px;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .diagram-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+        
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #1565c0;
+        }
+        
+        .info strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            h2 {
+                font-size: 1.4em;
+            }
+            
+            .diagram-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Hospital Management System - Flowchart</h1>
+        
+        <div class="info">
+            <strong>📊 Interactive Flowcharts</strong>
+            This preview shows all the system flowcharts. Scroll down to see different views of the system architecture and workflows.
+        </div>
+        
+        <h2>1. Main System Flow</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart TD
+    Start([User Accesses System]) --> LoginPage[Login Page]
+    LoginPage --> EnterCredentials{Enter Email & Password}
+    EnterCredentials --> AuthAPI[POST /api/auth/login]
+    AuthAPI --> CheckUser{User Exists?}
+    
+    CheckUser -->|No| AuthError[Invalid Credentials]
+    AuthError --> LoginPage
+    
+    CheckUser -->|Yes| VerifyPassword{Password Valid?}
+    VerifyPassword -->|No| AuthError
+    VerifyPassword -->|Yes| GenerateJWT[Generate JWT Token]
+    GenerateJWT --> DetermineRole{Determine User Role}
+    
+    DetermineRole -->|Admin| AdminDashboard[Admin Dashboard]
+    DetermineRole -->|Doctor| DoctorDashboard[Doctor Dashboard]
+    DetermineRole -->|Cashier| CashierDashboard[Cashier Dashboard]
+    DetermineRole -->|Patient| PatientDashboard[Patient Dashboard]
+    
+    %% Admin Flow
+    AdminDashboard --> AdminOptions{Admin Actions}
+    AdminOptions -->|View Users| GetUsers[GET /api/admin/users]
+    AdminOptions -->|View Appointments| GetAppointments[GET /api/admin/appointments]
+    AdminOptions -->|View Billing| GetBilling[GET /api/admin/billing]
+    AdminOptions -->|View Stats| GetStats[GET /api/admin/stats]
+    AdminOptions -->|Manage Users| ManageUsers[Create/Update/Delete Users]
+    AdminOptions -->|Manage Appointments| ManageAppts[Update/Delete Appointments]
+    
+    GetUsers --> DBQuery1[(MySQL Database)]
+    GetAppointments --> DBQuery1
+    GetBilling --> DBQuery1
+    GetStats --> DBQuery1
+    ManageUsers --> DBQuery1
+    ManageAppts --> DBQuery1
+    
+    %% Doctor Flow
+    DoctorDashboard --> DoctorOptions{Doctor Actions}
+    DoctorOptions -->|View Appointments| GetDocAppts[GET /api/doctor/appointments]
+    DoctorOptions -->|Update Diagnosis| UpdateDiagnosis[PUT /api/doctor/appointments/:id/diagnosis]
+    DoctorOptions -->|View Patient History| GetPatientHistory[GET /api/doctor/patients/:email/history]
+    
+    GetDocAppts --> DBQuery2[(MySQL Database)]
+    UpdateDiagnosis --> UpdateApptStatus[Update Appointment Status to 'Done']
+    UpdateApptStatus --> DBQuery2
+    GetPatientHistory --> DBQuery2
+    
+    %% Cashier Flow
+    CashierDashboard --> CashierOptions{Cashier Actions}
+    CashierOptions -->|View Billing| GetCashierBilling[GET /api/cashier/billing]
+    CashierOptions -->|Create Bill| CreateBill[POST /api/cashier/billing]
+    CashierOptions -->|Update Payment| UpdatePayment[PUT /api/cashier/billing/:id/payment]
+    
+    GetCashierBilling --> DBQuery3[(MySQL Database)]
+    CreateBill --> DBQuery3
+    UpdatePayment --> DBQuery3
+    
+    %% Patient Flow
+    PatientDashboard --> PatientOptions{Patient Actions}
+    PatientOptions -->|View Appointments| GetPatientAppts[GET /api/patient/appointments]
+    PatientOptions -->|Create Appointment| CreateAppt[POST /api/patient/appointments]
+    PatientOptions -->|Update Appointment| UpdateAppt[PUT /api/patient/appointments/:id]
+    PatientOptions -->|Delete Appointment| DeleteAppt[DELETE /api/patient/appointments/:id]
+    PatientOptions -->|View Medical History| GetMedHistory[GET /api/patient/history]
+    PatientOptions -->|Update Profile| UpdateProfile[PUT /api/profile]
+    
+    GetPatientAppts --> DBQuery4[(MySQL Database)]
+    CreateAppt --> CheckConflict{Time Slot Available?}
+    CheckConflict -->|No| ConflictError[Time Slot Already Booked]
+    CheckConflict -->|Yes| InsertAppt[Insert Appointment]
+    InsertAppt --> DBQuery4
+    UpdateAppt --> VerifyOwnership{Own Appointment?}
+    VerifyOwnership -->|No| AccessDenied[Access Denied]
+    VerifyOwnership -->|Yes| CheckStatus{Status = Done?}
+    CheckStatus -->|Yes| CannotModify[Cannot Modify Completed]
+    CheckStatus -->|No| UpdateDB[Update in Database]
+    UpdateDB --> DBQuery4
+    DeleteAppt --> VerifyOwnership
+    GetMedHistory --> DBQuery4
+    UpdateProfile --> DBQuery4
+    
+    %% Database Response
+    DBQuery1 --> Response1[JSON Response]
+    DBQuery2 --> Response2[JSON Response]
+    DBQuery3 --> Response3[JSON Response]
+    DBQuery4 --> Response4[JSON Response]
+    
+    Response1 --> AdminDashboard
+    Response2 --> DoctorDashboard
+    Response3 --> CashierDashboard
+    Response4 --> PatientDashboard
+    
+    %% Authentication Middleware
+    AuthAPI -.->|All Protected Routes| AuthMiddleware[authenticateToken Middleware]
+    AuthMiddleware --> CheckToken{Token Valid?}
+    CheckToken -->|No| Unauthorized[401 Unauthorized]
+    CheckToken -->|Yes| CheckRole{Role Authorized?}
+    CheckRole -->|No| Forbidden[403 Forbidden]
+    CheckRole -->|Yes| AllowAccess[Allow Access]
+    
+    %% Styling
+    classDef startEnd fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef process fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef decision fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef database fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef error fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    
+    class Start,LoginPage startEnd
+    class AuthAPI,GenerateJWT,GetUsers,GetAppointments,GetBilling,GetStats,GetDocAppts,UpdateDiagnosis,GetCashierBilling,CreateBill,UpdatePayment,GetPatientAppts,CreateAppt,UpdateAppt,DeleteAppt,GetMedHistory,UpdateProfile process
+    class EnterCredentials,CheckUser,VerifyPassword,DetermineRole,AdminOptions,DoctorOptions,CashierOptions,PatientOptions,CheckConflict,VerifyOwnership,CheckStatus,CheckToken,CheckRole decision
+    class DBQuery1,DBQuery2,DBQuery3,DBQuery4 database
+    class AuthError,ConflictError,AccessDenied,CannotModify,Unauthorized,Forbidden error
+            </div>
+        </div>
+        
+        <h2>2. System Architecture Flow</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+flowchart LR
+    subgraph Frontend["Frontend (React)"]
+        A[Login Component]
+        B[Admin Dashboard]
+        C[Doctor Dashboard]
+        D[Cashier Dashboard]
+        E[Patient Dashboard]
+    end
+    
+    subgraph Backend["Backend (Node.js/Express)"]
+        F[Authentication API]
+        G[Admin Routes]
+        H[Doctor Routes]
+        I[Cashier Routes]
+        J[Patient Routes]
+        K[JWT Middleware]
+        L[Role Check Middleware]
+    end
+    
+    subgraph Database["MySQL Database"]
+        M[(Admin Table)]
+        N[(Doctor Table)]
+        O[(Patient Table)]
+        P[(Cashier Table)]
+        Q[(Appointment Table)]
+        R[(Billing Table)]
+        S[(Diagnose Table)]
+        T[(MedicalHistory Table)]
+    end
+    
+    A -->|POST /api/auth/login| F
+    F -->|Query| M
+    F -->|Query| N
+    F -->|Query| O
+    F -->|Query| P
+    F -->|JWT Token| A
+    
+    A -->|Navigate| B
+    A -->|Navigate| C
+    A -->|Navigate| D
+    A -->|Navigate| E
+    
+    B -->|API Calls| G
+    C -->|API Calls| H
+    D -->|API Calls| I
+    E -->|API Calls| J
+    
+    G -->|Auth Check| K
+    H -->|Auth Check| K
+    I -->|Auth Check| K
+    J -->|Auth Check| K
+    
+    K -->|Role Check| L
+    L -->|Allow| G
+    L -->|Allow| H
+    L -->|Allow| I
+    L -->|Allow| J
+    
+    G -->|Query| M
+    G -->|Query| Q
+    G -->|Query| R
+    H -->|Query| Q
+    H -->|Query| S
+    H -->|Query| T
+    I -->|Query| R
+    J -->|Query| Q
+    J -->|Query| T
+    
+    style Frontend fill:#e3f2fd
+    style Backend fill:#fff3e0
+    style Database fill:#e8f5e9
+            </div>
+        </div>
+        
+        <h2>3. Appointment Booking Flow</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+sequenceDiagram
+    participant P as Patient
+    participant F as Frontend
+    participant B as Backend API
+    participant D as MySQL Database
+    
+    P->>F: Select Doctor & Time Slot
+    F->>B: POST /api/patient/appointments
+    B->>B: Verify JWT Token
+    B->>B: Check Role = 'patient'
+    B->>D: Check for Time Conflicts
+    D-->>B: Conflict Check Result
+    
+    alt Time Slot Available
+        B->>D: INSERT INTO Appointment
+        D-->>B: Appointment ID
+        B->>D: INSERT INTO PatientsAttendAppointments
+        B->>D: INSERT INTO Diagnose
+        B-->>F: Success Response
+        F-->>P: Appointment Confirmed
+    else Time Slot Booked
+        B-->>F: 400 Error
+        F-->>P: Time Slot Unavailable
+    end
+    
+    Note over P,D: Appointment Status: 'NotDone'
+            </div>
+        </div>
+        
+        <h2>4. Diagnosis & Billing Flow</h2>
+        <div class="diagram-container">
+            <div class="mermaid">
+sequenceDiagram
+    participant Doc as Doctor
+    participant Cash as Cashier
+    participant B as Backend API
+    participant D as MySQL Database
+    
+    Doc->>B: PUT /api/doctor/appointments/:id/diagnosis
+    B->>B: Verify JWT & Role
+    B->>D: UPDATE Diagnose SET diagnosis, prescription
+    B->>D: UPDATE Appointment SET status = 'Done'
+    D-->>B: Success
+    B-->>Doc: Diagnosis Updated
+    
+    Note over Doc,D: Appointment Status: 'Done'
+    
+    Cash->>B: POST /api/cashier/billing
+    B->>B: Verify JWT & Role
+    B->>D: INSERT INTO Billing (status: 'Pending')
+    D-->>B: Billing ID
+    B-->>Cash: Bill Created
+    
+    Cash->>B: PUT /api/cashier/billing/:id/payment
+    B->>B: Verify JWT & Role
+    B->>D: UPDATE Billing SET payment_status = 'Paid'
+    D-->>B: Success
+    B-->>Cash: Payment Recorded
+            </div>
+        </div>
+        
+        <div class="info" style="margin-top: 40px;">
+            <strong>💡 Tips</strong>
+            <ul style="margin-top: 10px; margin-left: 20px;">
+                <li>You can zoom in/out using your browser's zoom controls</li>
+                <li>Scroll horizontally if diagrams are wider than the viewport</li>
+                <li>Open this file in any modern web browser to view the flowcharts</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            }
+        });
+    </script>
+</body>
+</html>
+

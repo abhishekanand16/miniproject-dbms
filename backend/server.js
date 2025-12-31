@@ -552,6 +552,22 @@ app.put('/api/cashier/billing/:id/payment', authenticateToken, checkRole('cashie
   }
 });
 
+app.delete('/api/cashier/billing/:id', authenticateToken, checkRole('cashier'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await query('SELECT id, payment_status FROM Billing WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Billing record not found' });
+    if (rows[0].payment_status === 'Paid') {
+      return res.status(400).json({ error: 'Paid bills cannot be deleted' });
+    }
+    await query('DELETE FROM Billing WHERE id = ?', [id]);
+    res.json({ message: 'Billing record deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting billing record:', error);
+    res.status(500).json({ error: 'Failed to delete billing record' });
+  }
+});
+
 // ==================== ADMIN ROUTES ====================
 
 app.get('/api/admin/users', authenticateToken, checkRole('admin'), async (req, res) => {
@@ -699,6 +715,19 @@ app.get('/api/admin/billing', authenticateToken, checkRole('admin'), async (req,
   } catch (error) {
     console.error('Error fetching billing:', error);
     res.status(500).json({ error: 'Failed to fetch billing records' });
+  }
+});
+
+app.delete('/api/admin/billing/:id', authenticateToken, checkRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await query('SELECT id FROM Billing WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Billing record not found' });
+    await query('DELETE FROM Billing WHERE id = ?', [id]);
+    res.json({ message: 'Billing record deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting billing record:', error);
+    res.status(500).json({ error: 'Failed to delete billing record' });
   }
 });
 
